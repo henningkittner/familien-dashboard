@@ -99,11 +99,11 @@
 </head>
 <body>
 <div class="kopf">
-  <h1>Abfahrten</h1>
+  <h1 id="kopf-datum">Familien-Dashboard</h1>
   <div class="uhr" id="uhr">--:--</div><div id="wetter"></div>
   <div class="stand" id="stand">Lade …</div>
 </div>
-<div class="raster" id="raster"></div>
+<div class="abf-titel">Abfahrten</div><div class="raster" id="raster"></div>
 <div class="vp-bereich">
   <h2 class="vp-titel">Vertretungsplan</h2>
   <div id="vertretung"></div>
@@ -272,6 +272,46 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   aktualisiere(); setInterval(aktualisiere, CONFIG.aktualisierenSek * 1000);
   // Alle 6 Stunden komplett neu laden (hält die Seite frisch)
   setTimeout(function () { location.reload(); }, 6 * 3600 * 1000);
+})();
+</script>
+<style>
+  .kopf { padding: 12px 18px 6px !important; }
+  .kopf h1 { font-size: 26px !important; font-weight: 700 !important; letter-spacing: -0.3px; line-height: 44px; }
+  .kopf h1:before { display: none !important; }
+  .stand { padding-top: 0 !important; }
+  #wetter { background: rgba(255,255,255,.07); border-radius: 16px; padding: 7px 14px 7px 10px !important; margin: -2px 22px 0 0 !important; }
+  #wetter .w-symbol svg { width: 46px; height: 46px; }
+  #wetter .w-temp { font-size: 28px !important; line-height: 30px !important; height: 30px !important; font-weight: 600 !important; }
+  #wetter .w-klein { line-height: 16px !important; height: 16px !important; font-size: 12px !important; }
+  .uhr { line-height: 60px !important; }
+  .abf-titel, .vp-titel { font-size: 19px !important; font-weight: 700 !important; color: #fff; letter-spacing: .2px; }
+  .abf-titel { background: #071d4f; margin: 6px 10px 0; padding: 9px 16px 2px; border-radius: 14px 14px 0 0; }
+  .abf-titel:before, .vp-titel:before { content: ""; display: inline-block; width: 5px; height: 18px; border-radius: 3px; margin-right: 9px; vertical-align: -2px; }
+  .abf-titel:before { background: #ec0016; }
+  .raster { margin-top: 0 !important; border-radius: 0 0 14px 14px !important; padding: 2px 6px 6px !important; }
+  .karte { box-shadow: 0 1px 0 rgba(255,255,255,.06) inset; }
+  .vp-bereich { padding: 9px 12px 8px !important; }
+  #vertretung .vp-kind { background: #2a2038; box-shadow: 0 1px 0 rgba(255,255,255,.05) inset; border-radius: 12px; }
+  #vertretung .vp-kopf { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; }
+  #vertretung .vp-kopf small { margin-left: 8px; }
+  .vp-avatar { display: inline-block; width: 28px; height: 28px; line-height: 28px; border-radius: 14px; text-align: center; font-size: 15px; font-weight: 700; color: #fff; margin-right: 9px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+  .vp-avatar0 { background: #e0679b; } .vp-avatar1 { background: #4f8ef7; }
+  #vertretung .vp-tagname { font-weight: 600; letter-spacing: .6px; margin-top: 2px; }
+  #vertretung .vp-zeile { border-left: none !important; border-radius: 9px; padding: 5px 10px 5px 6px; -webkit-align-items: center; align-items: center; }
+  #vertretung .vp-std { width: 26px !important; height: 26px; line-height: 26px; border-radius: 13px; text-align: center; font-size: 14px; margin-right: 10px; }
+  #vertretung .vp-entfall { background: rgba(255,93,108,.16); } #vertretung .vp-entfall .vp-std { background: #ff5d6c; color: #fff; }
+  #vertretung .vp-vertretung { background: rgba(255,197,61,.14); } #vertretung .vp-vertretung .vp-std { background: #ffc53d; color: #1b1b1b; }
+  #vertretung .vp-raum, #vertretung .vp-sonstiges { background: rgba(90,169,255,.15); } #vertretung .vp-raum .vp-std, #vertretung .vp-sonstiges .vp-std { background: #5aa9ff; color: #fff; }
+  #vertretung .vp-leer-zeile { background: transparent !important; } #vertretung .vp-leer-zeile .vp-std { background: transparent !important; }
+  #vertretung .vp-info { color: #c3bad0; opacity: 1; }
+  #vertretung .vp-hinweis { color: #cfc6dc; font-style: italic; }
+</style>
+<script>
+(function () {
+  var WT = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  var MO = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+  function datum() { var d = new Date(); document.getElementById("kopf-datum").innerHTML = WT[d.getDay()] + ", " + d.getDate() + ". " + MO[d.getMonth()]; }
+  datum(); setInterval(datum, 60000);
 })();
 </script>
 <script>
@@ -525,6 +565,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   function art(info, betrifft, vertretung, fach) {
     var i = info.toLowerCase();
     if (/entf|fällt aus|(^|\W)frei(\W|$)|selbststudium|ausfall/.test(i)) return "entfall";
+    if (/entf|fällt aus|ausfall/i.test(vertretung)) return "entfall";
     if (!vertretung && !fach) return "entfall";
     if (vertretung && vertretung !== betrifft) return "vertretung";
     if (i.indexOf("raum") >= 0) return "raum";
@@ -630,7 +671,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var heute = iso(new Date()), html = "";
     for (var i = 0; i < d.kinder.length; i++) {
       var k = d.kinder[i], gezeigt = 0, zeilen = 0;
-      html += '<div class="vp-kind"><div class="vp-kopf">' + esc(k.name) + (k.klasse ? "<small>Klasse " + esc(k.klasse) + "</small>" : "") + "</div>";
+      html += '<div class="vp-kind"><div class="vp-kopf"><span class="vp-avatar vp-avatar' + (i % 2) + '">' + esc(k.name.charAt(0)) + "</span>" + esc(k.name) + (k.klasse ? "<small>Klasse " + esc(k.klasse) + "</small>" : "") + "</div>";
       for (var j = 0; j < k.tage.length && gezeigt < TAGE_ANZEIGEN; j++) {
         var t = k.tage[j];
         if (t.datum < heute) continue;
