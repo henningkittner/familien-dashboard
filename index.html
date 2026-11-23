@@ -328,7 +328,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       plan.name = name;
       kinder.push(plan);
     }
-    return { aktualisiert: new Date().getTime(), kinder: kinder };
+    return { aktualisiert: new Date().getTime(), kinder: kinder,
+      info: m[1].length + " Zeichen, " + kinder.length + " Kind(er), " + text.length + " Text" };
   }
 
   function speichern(d) { try { localStorage.setItem(SPEICHER, JSON.stringify(d)); } catch (e) {} }
@@ -377,7 +378,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var zeit = new Date(d.aktualisiert);
     var hhmm = (zeit.getHours() < 10 ? "0" : "") + zeit.getHours() + ":" + (zeit.getMinutes() < 10 ? "0" : "") + zeit.getMinutes();
     html += '<div class="vp-fuss' + (alter > 6 * 60 ? " vp-alt" : "") + '">Abgerufen ' +
-      (iso(zeit) === heute ? "heute " : WT[zeit.getDay()] + " ") + hhmm + "</div>";
+      (iso(zeit) === heute ? "heute " : WT[zeit.getDay()] + " ") + hhmm +
+      (d.info ? " · " + esc(d.info) : "") + (fehler ? " · Fehler: " + esc(fehler) : "") + "</div>";
     ziel.innerHTML = html;
   }
 
@@ -393,6 +395,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     ".vp-ok{font-size:18px;color:#7ddc8a;padding:4px 0}.vp-hinweis{font-size:16px;color:#c9d1db;padding:4px 0}" +
     ".vp-leer{font-size:18px;color:#9aa6b5;padding:12px 0}.vp-fuss{font-size:13px;color:#6d7887;margin-top:4px}.vp-fuss.vp-alt{color:#ff8f99}";
 
+  var fehler = "";
   function start(id) {
     var ziel = document.getElementById(id);
     if (!document.getElementById("vp-css")) {
@@ -407,6 +410,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       }
     } catch (e) {
       ziel.setAttribute("data-fehler", String(e));
+      fehler = String(e) + " (" + location.hash.length + " Zeichen)";
     }
     var anzeigen = function () { zeichnen(ziel, laden()); };
     anzeigen();
