@@ -281,8 +281,11 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .stand { padding-top: 0 !important; }
   #wetter { background: rgba(255,255,255,.07); border-radius: 16px; padding: 7px 14px 7px 10px !important; margin: -2px 22px 0 0 !important; }
   #wetter .w-symbol svg { width: 46px; height: 46px; }
-  #wetter .w-temp { font-size: 28px !important; line-height: 30px !important; height: 30px !important; font-weight: 600 !important; }
-  #wetter .w-klein { line-height: 16px !important; height: 16px !important; font-size: 12px !important; }
+  #wetter { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; }
+  #wetter .w-symbol { float: none !important; margin-right: 10px !important; }
+  #wetter .w-werte { float: none !important; }
+  #wetter .w-temp { font-size: 28px !important; line-height: 1.1 !important; height: auto !important; overflow: visible !important; font-weight: 600 !important; margin-bottom: 3px; }
+  #wetter .w-klein { line-height: 1.35 !important; height: auto !important; font-size: 12px !important; }
   .uhr { line-height: 60px !important; }
   .abf-titel, .vp-titel { font-size: 19px !important; font-weight: 700 !important; color: #fff; letter-spacing: .2px; }
   .abf-titel { background: #071d4f; margin: 6px 10px 0; padding: 9px 16px 2px; border-radius: 14px 14px 0 0; }
@@ -512,9 +515,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (!el || !d || !d.current) return;
     var c = d.current.weather_code, tag = d.current.is_day, t = d.daily;
     var regen = t.precipitation_probability_max ? t.precipitation_probability_max[0] : null;
-    el.innerHTML = '<span class="w-symbol">' + symbol(c, tag) + '</span><span class="w-werte"><span class="w-temp">' + r(d.current.temperature_2m) +
-      '</span><span class="w-klein">' + text(c, tag) + "</span><span class=\"w-klein\">H: " + r(t.temperature_2m_max[0]) + "  T: " + r(t.temperature_2m_min[0]) +
-      (regen != null && regen >= 20 ? ' · <span class="w-regen">' + regen + " % Regen</span>" : "") + "</span></span>";
+    el.innerHTML = '<div class="w-symbol">' + symbol(c, tag) + '</div><div class="w-werte"><div class="w-temp">' + r(d.current.temperature_2m) +
+      '</div><div class="w-klein">' + text(c, tag) + '</div><div class="w-klein">H: ' + r(t.temperature_2m_max[0]) + " &nbsp;T: " + r(t.temperature_2m_min[0]) +
+      (regen != null && regen >= 20 ? ' · <span class="w-regen">' + regen + " % Regen</span>" : "") + "</div></div>";
   }
   function laden() {
     var x = new XMLHttpRequest();
