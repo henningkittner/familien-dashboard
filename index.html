@@ -78,12 +78,18 @@
   #vertretung .vp-ok { font-size: 13px; padding: 1px 0; }
   #vertretung .vp-hinweis { font-size: 12px; padding: 1px 0; }
   #vertretung .vp-fuss { font-size: 10px; }
+  .kopf h1 { margin-right: 18px; }
+  #wetter { float: left; font-size: 15px; line-height: 28px; color: #c9d1db; }
+  #wetter .w-jetzt { font-size: 22px; font-weight: 600; color: #f2f4f7; margin-right: 6px; }
+  #wetter .w-text { margin-right: 14px; color: #8a96a8; }
+  #wetter .w-tag { margin-right: 14px; white-space: nowrap; }
+  #wetter .w-regen { color: #7fb8ff; font-size: 13px; }
 </style>
 </head>
 <body>
 <div class="kopf">
   <h1>Abfahrten</h1>
-  <div class="uhr" id="uhr">--:--</div>
+  <div id="wetter"></div><div class="uhr" id="uhr">--:--</div>
   <div class="stand" id="stand">Lade …</div>
 </div>
 <div class="raster" id="raster"></div>
@@ -252,6 +258,54 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   // Alle 6 Stunden komplett neu laden (hält die Seite frisch)
   setTimeout(function () { location.reload(); }, 6 * 3600 * 1000);
 })();
+</script>
+<script>
+/* Wetter für 82008 Unterhaching über Open-Meteo (kostenlos, ohne Schlüssel, CORS erlaubt). ES5. */
+(function () {
+  var URL_W = "https://api.open-meteo.com/v1/forecast?latitude=48.066&longitude=11.616" +
+    "&current=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
+    "&timezone=Europe%2FBerlin&forecast_days=4";
+  var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+  function art(c, tag) {
+    if (c === 0) return [tag ? "☀️" : "🌙", "klar"];
+    if (c === 1) return [tag ? "🌤️" : "🌙", "fast klar"];
+    if (c === 2) return ["⛅", "teils bewölkt"];
+    if (c === 3) return ["☁️", "bewölkt"];
+    if (c === 45 || c === 48) return ["🌫️", "Nebel"];
+    if (c >= 51 && c <= 57) return ["🌦️", "Niesel"];
+    if (c >= 61 && c <= 67) return ["🌧️", "Regen"];
+    if (c >= 71 && c <= 77) return ["🌨️", "Schnee"];
+    if (c >= 80 && c <= 82) return ["🌦️", "Schauer"];
+    if (c === 85 || c === 86) return ["🌨️", "Schneeschauer"];
+    if (c >= 95) return ["⛈️", "Gewitter"];
+    return ["", ""];
+  }
+  function r(x) { return Math.round(x) + "°"; }
+  function zeichnen(d) {
+    var el = document.getElementById("wetter");
+    if (!el || !d || !d.current) return;
+    var a = art(d.current.weather_code, d.current.is_day), t = d.daily, html =
+      '<span class="w-jetzt">' + a[0] + " " + r(d.current.temperature_2m) + '</span><span class="w-text">' + a[1] + "</span>";
+    for (var i = 0; i < t.time.length && i < 4; i++) {
+      var p = t.time[i].split("-"), wt = i === 0 ? "Heute" : WT[new Date(+p[0], +p[1] - 1, +p[2]).getDay()];
+      var regen = t.precipitation_probability_max ? t.precipitation_probability_max[i] : null;
+      html += '<span class="w-tag"><b>' + wt + "</b> " + art(t.weather_code[i], 1)[0] + " " + r(t.temperature_2m_min[i]) + "/" + r(t.temperature_2m_max[i]) +
+        (regen != null && regen >= 30 ? ' <span class="w-regen">💧' + regen + "%</span>" : "") + "</span>";
+    }
+    el.innerHTML = html;
+  }
+  function laden() {
+    var x = new XMLHttpRequest();
+    x.open("GET", URL_W, true);
+    x.onreadystatechange = function () {
+      if (x.readyState === 4 && x.status === 200) { try { zeichnen(JSON.parse(x.responseText)); } catch (e) {} }
+    };
+    x.send();
+  }
+  laden();
+  setInterval(laden, 15 * 60 * 1000);
+})();
+
 </script>
 <script>
 /*
