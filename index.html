@@ -88,6 +88,11 @@
   #wetter { float: right; margin-right: 28px; margin-top: -4px; line-height: 1; }
   #wetter .w-symbol { float: left; font-size: 48px; line-height: 53px; margin-right: 8px; }
   #wetter .w-werte { float: left; }
+  #wetter .w-nacht { position: relative; width: 50px; height: 44px; }
+  #wetter .w-mond { position: absolute; right: 4px; top: 2px; font-size: 22px; line-height: 24px; z-index: 0; }
+  #wetter .w-sterne { position: absolute; left: 4px; bottom: 4px; font-size: 14px; line-height: 16px; }
+  #wetter .w-wolke { position: absolute; left: 0; bottom: 0; font-size: 34px; line-height: 36px; z-index: 1; }
+  #wetter .w-wolke.klein { left: 14px; bottom: 2px; font-size: 22px; line-height: 24px; }
   #wetter .w-temp { display: block; font-size: 34px; font-weight: 600; color: #f2f4f7; line-height: 36px; }
   #wetter .w-klein { display: block; font-size: 14px; color: #8a96a8; line-height: 17px; white-space: nowrap; }
   #wetter .w-regen { color: #7fb8ff; }
@@ -266,6 +271,21 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   setTimeout(function () { location.reload(); }, 6 * 3600 * 1000);
 })();
 </script>
+<script>
+/* Abfahrten: immer gleich viele Zeilen (CONFIG.maxZeilen), auch ohne Daten */
+(function () {
+  var alt = zeichneKarte, LEER = '<div class="zeile leer-zeile"><span class="zeit"><span class="min">&nbsp;</span><span class="uhrzeit">&nbsp;</span></span><div class="ziel">&nbsp;</div></div>';
+  zeichneKarte = function (i, inhalt) {
+    var n = (inhalt.match(/class="zeile/g) || []).length + (inhalt.match(/class="hinweis/g) || []).length;
+    for (; n < CONFIG.maxZeilen; n++) inhalt += LEER;
+    alt(i, inhalt);
+  };
+  aktualisiere();
+})();
+</script>
+<style>
+  .hinweis { padding: 3px 0 !important; line-height: 29px; min-height: 46px; box-sizing: border-box; border-top: 1px solid #2a3444; }
+</style>
 <div id="ruhe"><div id="ruhe-mitte"><div id="ruhe-zeit"></div><div id="ruhe-datum"></div></div></div>
 <style>
   #ruhe { position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; }
@@ -308,9 +328,10 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     "&timezone=Europe%2FBerlin&forecast_days=1";
   var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
   function art(c, tag) {
-    if (c === 0) return tag ? ["☀️", "sonnig"] : ["🌙✨", "sternenklar"];
-    if (c === 1) return tag ? ["🌤️", "fast klar"] : ["🌙✨", "fast klar"];
-    if (c === 2) return tag ? ["⛅", "teils bewölkt"] : ["☁️🌙", "teils bewölkt"];
+    var MOND = '<span class="w-mond">🌙</span>', STERNE = '<span class="w-sterne">✨</span>';
+    if (c === 0) return tag ? ["☀️", "sonnig"] : [MOND + STERNE, "sternenklar"];
+    if (c === 1) return tag ? ["🌤️", "fast klar"] : [MOND + STERNE + '<span class="w-wolke klein">☁️</span>', "fast klar"];
+    if (c === 2) return tag ? ["⛅", "teils bewölkt"] : [MOND + '<span class="w-wolke">☁️</span>', "teils bewölkt"];
     if (c === 3) return ["☁️", "bewölkt"];
     if (c === 45 || c === 48) return ["🌫️", "Nebel"];
     if (c >= 51 && c <= 57) return [tag ? "🌦️" : "🌧️", "Niesel"];
@@ -327,7 +348,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (!el || !d || !d.current) return;
     var a = art(d.current.weather_code, d.current.is_day), t = d.daily;
     var regen = t.precipitation_probability_max ? t.precipitation_probability_max[0] : null;
-    el.innerHTML = '<span class="w-symbol">' + a[0] + '</span><span class="w-werte"><span class="w-temp">' + r(d.current.temperature_2m) +
+    el.innerHTML = '<span class="w-symbol' + (a[0].indexOf("w-mond") >= 0 ? " w-nacht" : "") + '">' + a[0] + '</span><span class="w-werte"><span class="w-temp">' + r(d.current.temperature_2m) +
       '</span><span class="w-klein">' + a[1] + " · " + r(t.temperature_2m_min[0]) + " / " + r(t.temperature_2m_max[0]) +
       (regen != null && regen >= 20 ? ' · <span class="w-regen">💧 ' + regen + " %</span>" : "") + "</span></span>";
   }
@@ -363,6 +384,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 (function () {
   var SPEICHER = "vertretungsplan_v1";
   var TAGE_ANZEIGEN = 2;
+  var ZEILEN = 6; // feste Zeilenzahl pro Kind, damit sich das Layout nicht verschiebt
   var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
   function iso(d) {
@@ -482,19 +504,20 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     }
     var heute = iso(new Date()), html = "";
     for (var i = 0; i < d.kinder.length; i++) {
-      var k = d.kinder[i], gezeigt = 0;
+      var k = d.kinder[i], gezeigt = 0, zeilen = 0;
       html += '<div class="vp-kind"><div class="vp-kopf">' + esc(k.name) + (k.klasse ? "<small>Klasse " + esc(k.klasse) + "</small>" : "") + "</div>";
       for (var j = 0; j < k.tage.length && gezeigt < TAGE_ANZEIGEN; j++) {
         var t = k.tage[j];
         if (t.datum < heute) continue;
         gezeigt++;
         html += '<div class="vp-tag"><div class="vp-tagname">' + tagName(t.datum) + "</div>";
-        if (!t.eintraege.length && !t.hinweise.length) html += '<div class="vp-ok">✓ Keine Änderungen</div>';
-        for (var n = 0; n < t.hinweise.length; n++) html += '<div class="vp-hinweis">' + esc(t.hinweise[n]) + "</div>";
-        for (var x = 0; x < t.eintraege.length; x++) html += eintrag(t.eintraege[x]);
+        if (!t.eintraege.length && !t.hinweise.length) { html += '<div class="vp-ok">✓ Keine Änderungen</div>'; zeilen++; }
+        for (var n = 0; n < t.hinweise.length; n++) { html += '<div class="vp-hinweis">' + esc(t.hinweise[n]) + "</div>"; zeilen++; }
+        for (var x = 0; x < t.eintraege.length; x++) { html += eintrag(t.eintraege[x]); zeilen++; }
         html += "</div>";
       }
-      if (!gezeigt) html += '<div class="vp-ok">Noch kein Plan für die nächsten Tage</div>';
+      if (!gezeigt) { html += '<div class="vp-ok">Noch kein Plan für die nächsten Tage</div>'; zeilen++; }
+      for (; zeilen < ZEILEN; zeilen++) html += '<div class="vp-zeile vp-leer-zeile"><div class="vp-std">&nbsp;</div><div class="vp-was">&nbsp;</div></div>';
       html += "</div>";
     }
     var alter = Math.round((new Date().getTime() - d.aktualisiert) / 60000);
@@ -516,6 +539,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     ".vp-entfall{background:#4a1f24;border-left:6px solid #ff5d6c}.vp-vertretung{background:#4a3a14;border-left:6px solid #ffc53d}" +
     ".vp-raum,.vp-sonstiges{background:#1f3346;border-left:6px solid #5aa9ff}" +
     ".vp-ok{font-size:18px;color:#7ddc8a;padding:4px 0}.vp-hinweis{font-size:16px;color:#c9d1db;padding:4px 0}" +
+    ".vp-leer-zeile{background:transparent}" +
     ".vp-leer{font-size:18px;color:#9aa6b5;padding:12px 0}.vp-fuss{font-size:13px;color:#6d7887;margin-top:4px}.vp-fuss.vp-alt{color:#ff8f99}";
 
   var fehler = "";
