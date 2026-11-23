@@ -328,7 +328,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 (function () {
   var MIN = 0.6, MAX = 1.25;
   function einpassen() {
-    var b = document.body, de = document.documentElement;
+    var b = document.body, de = document.documentElement, ruhe = document.getElementById("ruhe");
+    // Während die Uhr (Ruhe-Ansicht) zu sehen ist, nichts verändern, sonst springt sie
+    if (ruhe && ruhe.style.display !== "none") return;
     b.style.zoom = 1;
     var z = Math.max(MIN, Math.min(MAX, window.innerHeight / b.scrollHeight * 0.99));
     for (var runde = 0; runde < 8; runde++) {
@@ -336,11 +338,12 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       if (de.scrollHeight <= window.innerHeight + 1 || z <= MIN) break;
       z = z * 0.97;
     }
+    if (ruhe) ruhe.style.zoom = 1 / z; // Uhr-Ansicht immer in Originalgröße
   }
   window.addEventListener("resize", einpassen);
   window.addEventListener("orientationchange", function () { setTimeout(einpassen, 300); });
   setTimeout(einpassen, 300);
-  setInterval(einpassen, 5000);
+  setInterval(einpassen, 30000);
   window.Einpassen = einpassen;
 })();
 
@@ -433,7 +436,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   }
   function zeigeRuhe() { ruhe.style.display = "block"; window.scrollTo(0, 0); }
   function zeigeDashboard() {
+    var warVersteckt = ruhe.style.display === "none";
     ruhe.style.display = "none";
+    if (!warVersteckt && window.Einpassen) window.Einpassen();
     if (timer) clearTimeout(timer);
     timer = setTimeout(zeigeRuhe, ANZEIGE_SEK * 1000);
   }
