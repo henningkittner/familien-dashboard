@@ -79,17 +79,18 @@
   #vertretung .vp-hinweis { font-size: 12px; padding: 1px 0; }
   #vertretung .vp-fuss { font-size: 10px; }
   .kopf h1 { margin-right: 18px; }
-  #wetter { float: left; font-size: 15px; line-height: 28px; color: #c9d1db; }
-  #wetter .w-jetzt { font-size: 22px; font-weight: 600; color: #f2f4f7; margin-right: 6px; }
-  #wetter .w-text { margin-right: 14px; color: #8a96a8; }
-  #wetter .w-tag { margin-right: 14px; white-space: nowrap; }
-  #wetter .w-regen { color: #7fb8ff; font-size: 13px; }
+  #wetter { float: right; margin-right: 28px; margin-top: -4px; line-height: 1; }
+  #wetter .w-symbol { float: left; font-size: 40px; line-height: 44px; margin-right: 8px; }
+  #wetter .w-werte { float: left; }
+  #wetter .w-temp { display: block; font-size: 28px; font-weight: 600; color: #f2f4f7; line-height: 30px; }
+  #wetter .w-klein { display: block; font-size: 12px; color: #8a96a8; line-height: 14px; white-space: nowrap; }
+  #wetter .w-regen { color: #7fb8ff; }
 </style>
 </head>
 <body>
 <div class="kopf">
   <h1>Abfahrten</h1>
-  <div id="wetter"></div><div class="uhr" id="uhr">--:--</div>
+  <div class="uhr" id="uhr">--:--</div><div id="wetter"></div>
   <div class="stand" id="stand">Lade …</div>
 </div>
 <div class="raster" id="raster"></div>
@@ -264,7 +265,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 (function () {
   var URL_W = "https://api.open-meteo.com/v1/forecast?latitude=48.066&longitude=11.616" +
     "&current=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
-    "&timezone=Europe%2FBerlin&forecast_days=4";
+    "&timezone=Europe%2FBerlin&forecast_days=1";
   var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
   function art(c, tag) {
     if (c === 0) return [tag ? "☀️" : "🌙", "klar"];
@@ -284,15 +285,11 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   function zeichnen(d) {
     var el = document.getElementById("wetter");
     if (!el || !d || !d.current) return;
-    var a = art(d.current.weather_code, d.current.is_day), t = d.daily, html =
-      '<span class="w-jetzt">' + a[0] + " " + r(d.current.temperature_2m) + '</span><span class="w-text">' + a[1] + "</span>";
-    for (var i = 0; i < t.time.length && i < 4; i++) {
-      var p = t.time[i].split("-"), wt = i === 0 ? "Heute" : WT[new Date(+p[0], +p[1] - 1, +p[2]).getDay()];
-      var regen = t.precipitation_probability_max ? t.precipitation_probability_max[i] : null;
-      html += '<span class="w-tag"><b>' + wt + "</b> " + art(t.weather_code[i], 1)[0] + " " + r(t.temperature_2m_min[i]) + "/" + r(t.temperature_2m_max[i]) +
-        (regen != null && regen >= 30 ? ' <span class="w-regen">💧' + regen + "%</span>" : "") + "</span>";
-    }
-    el.innerHTML = html;
+    var a = art(d.current.weather_code, d.current.is_day), t = d.daily;
+    var regen = t.precipitation_probability_max ? t.precipitation_probability_max[0] : null;
+    el.innerHTML = '<span class="w-symbol">' + a[0] + '</span><span class="w-werte"><span class="w-temp">' + r(d.current.temperature_2m) +
+      '</span><span class="w-klein">' + a[1] + " · " + r(t.temperature_2m_min[0]) + " / " + r(t.temperature_2m_max[0]) +
+      (regen != null && regen >= 20 ? ' · <span class="w-regen">💧 ' + regen + " %</span>" : "") + "</span></span>";
   }
   function laden() {
     var x = new XMLHttpRequest();
