@@ -379,7 +379,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var hhmm = (zeit.getHours() < 10 ? "0" : "") + zeit.getHours() + ":" + (zeit.getMinutes() < 10 ? "0" : "") + zeit.getMinutes();
     html += '<div class="vp-fuss' + (alter > 6 * 60 ? " vp-alt" : "") + '">Abgerufen ' +
       (iso(zeit) === heute ? "heute " : WT[zeit.getDay()] + " ") + hhmm +
-      (d.info ? " · " + esc(d.info) : "") + (fehler ? " · Fehler: " + esc(fehler) : "") + "</div>";
+      (fehler ? " · Fehler: " + esc(fehler) : "") + "</div>";
     ziel.innerHTML = html;
   }
 
