@@ -260,6 +260,40 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   setTimeout(function () { location.reload(); }, 6 * 3600 * 1000);
 })();
 </script>
+<div id="ruhe"><div id="ruhe-mitte"><div id="ruhe-zeit"></div><div id="ruhe-datum"></div></div></div>
+<style>
+  #ruhe { position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; }
+  #ruhe-mitte { position: absolute; left: 0; right: 0; top: 50%; margin-top: -110px; text-align: center; }
+  #ruhe-zeit { font-size: 170px; font-weight: 200; color: #8a8f98; line-height: 180px; letter-spacing: 2px; }
+  #ruhe-datum { font-size: 26px; color: #565b63; margin-top: 6px; }
+</style>
+<script>
+/* Ruhe-Ansicht: schwarzer Bildschirm mit großer Uhr. Antippen zeigt das Dashboard für 2 Minuten. ES5. */
+(function () {
+  var ANZEIGE_SEK = 120;
+  var WT = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  var MO = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+  var ruhe = document.getElementById("ruhe"), timer = null;
+  function zwei(n) { return (n < 10 ? "0" : "") + n; }
+  function uhr() {
+    var d = new Date();
+    document.getElementById("ruhe-zeit").innerHTML = d.getHours() + ":" + zwei(d.getMinutes());
+    document.getElementById("ruhe-datum").innerHTML = WT[d.getDay()] + ", " + d.getDate() + ". " + MO[d.getMonth()];
+  }
+  function zeigeRuhe() { ruhe.style.display = "block"; window.scrollTo(0, 0); }
+  function zeigeDashboard() {
+    ruhe.style.display = "none";
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(zeigeRuhe, ANZEIGE_SEK * 1000);
+  }
+  ruhe.addEventListener("click", function (e) { e.preventDefault(); zeigeDashboard(); });
+  // Jede Berührung auf dem Dashboard verlängert die Anzeigezeit
+  document.addEventListener("touchstart", function () { if (ruhe.style.display === "none") zeigeDashboard(); }, false);
+  if (/[?&]ohneruhe=1/.test(location.search)) ruhe.style.display = "none";
+  uhr(); setInterval(uhr, 5000);
+})();
+
+</script>
 <script>
 /* Wetter für 82008 Unterhaching über Open-Meteo (kostenlos, ohne Schlüssel, CORS erlaubt). ES5. */
 (function () {
