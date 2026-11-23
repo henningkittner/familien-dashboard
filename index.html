@@ -65,7 +65,7 @@
   .zeit .min { font-size: 22px; }
   .zeit .uhrzeit { font-size: 13px; line-height: 13px; }
   .hinweis { font-size: 16px; padding: 6px 0; }
-  .fuss { font-size: 12px; padding: 0 16px 6px; }
+  .fuss { font-size: 12px; padding: 0 16px 2px; }
   .vp-bereich { padding: 0 12px 4px !important; }
   .vp-titel { font-size: 22px !important; margin: 4px 0 4px !important; }
   #vertretung .vp-kind { padding: 8px 12px; margin-bottom: 6px; border-radius: 10px; }
@@ -270,6 +270,66 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   // Alle 6 Stunden komplett neu laden (hält die Seite frisch)
   setTimeout(function () { location.reload(); }, 6 * 3600 * 1000);
 })();
+</script>
+<style>
+  /* Abfahrten im Stil einer Bahnhofsanzeige */
+  .raster { background: #071d4f !important; }
+  .karte { background: #0d3082; border-radius: 6px; }
+  .karte h2 { color: #fff; font-weight: 700; letter-spacing: .3px; }
+  .karte .unter { color: #a9bff2; }
+  .zeile { border-top: 1px solid rgba(255,255,255,.18); color: #fff; }
+  .ziel { font-weight: 600; }
+  .zeit .min { color: #fff; }
+  .zeit .uhrzeit { color: #a9bff2; }
+  .spaet, .zeit .min.spaet { color: #ffd400 !important; }
+  .ausfall .ziel, .ausfall .zeit .min { color: #ff6b6b; }
+  .hinweis { color: #a9bff2 !important; border-top-color: rgba(255,255,255,.18) !important; }
+  .kopf h1:before { background: #ec0016 !important; }
+  #laufband { margin: 0 10px; background: #fff; color: #0d3082; overflow: hidden; white-space: nowrap; height: 26px; line-height: 26px;
+    font-size: 16px; font-weight: 700; border-radius: 0 0 12px 12px; }
+  #laufband-text { display: inline-block; padding-left: 100%; -webkit-animation: lauf 20s linear infinite; animation: lauf 20s linear infinite; }
+  @-webkit-keyframes lauf { from { -webkit-transform: translateX(0); } to { -webkit-transform: translateX(-100%); } }
+  @keyframes lauf { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+  .raster { border-radius: 14px 14px 0 0 !important; }
+</style>
+<script>
+/* Laufschrift unter den Abfahrten (wie am Bahnsteig): Verspätungen und Ausfälle, sonst ein Gruß. ES5. */
+(function () {
+  var letzte = {}, altFiltere = filtere, altZeichne = zeichneKarte;
+  var band = document.createElement("div");
+  band.id = "laufband";
+  band.innerHTML = '<div id="laufband-text"></div>';
+  document.getElementById("raster").parentNode.insertBefore(band, document.getElementById("raster").nextSibling);
+  filtere = function (k, abfahrten) {
+    var r = altFiltere(k, abfahrten);
+    letzte[k.titel] = r;
+    return r;
+  };
+  zeichneKarte = function (i, inhalt) { altZeichne(i, inhalt); setTimeout(neu, 50); };
+  var bisher = "";
+  function neu() {
+    var teile = [];
+    for (var i = 0; i < CONFIG.karten.length; i++) {
+      var k = CONFIG.karten[i], l = letzte[k.titel] || [];
+      for (var j = 0; j < l.length; j++) {
+        var a = l[j], plan = hhmm(new Date(a.plan)), v = a.echt ? Math.round((a.echt - a.plan) / 60000) : 0;
+        var wer = (a.sbahn ? "S3" : "Bus " + a.linie) + " nach " + a.ziel + " (" + plan + " Uhr)";
+        if (a.ausfall) teile.push(wer + " fällt heute aus");
+        else if (v >= 3) teile.push(wer + " ca. " + v + " Minuten später");
+      }
+    }
+    var text = teile.length ? "Bitte beachten: " + teile.join("  +++  ") : "Keine Verspätungen gemeldet. Wir wünschen eine gute Fahrt!";
+    if (text === bisher) return;
+    bisher = text;
+    var el = document.getElementById("laufband-text");
+    el.innerHTML = esc(text) + "&nbsp;&nbsp;&nbsp;+++&nbsp;&nbsp;&nbsp;";
+    var dauer = Math.max(12, Math.round(text.length / 7)); // ca. 7 Zeichen pro Sekunde
+    el.style.webkitAnimationDuration = dauer + "s";
+    el.style.animationDuration = dauer + "s";
+  }
+  aktualisiere();
+})();
+
 </script>
 <script>
 /* Abfahrten: immer gleich viele Zeilen (CONFIG.maxZeilen), auch ohne Daten */
