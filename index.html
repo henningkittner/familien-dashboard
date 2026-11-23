@@ -114,6 +114,10 @@
   #vertretung .vp-kind { box-sizing: border-box; float: left; width: -webkit-calc(50% - 8px); width: calc(50% - 8px); margin-right: 16px; }
   #vertretung .vp-kind:nth-child(2n) { margin-right: 0; }
   #vertretung .vp-fuss { clear: both; }
+  /* beide Kinder immer gleich hoch */
+  #vertretung { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; -webkit-align-items: stretch; align-items: stretch; }
+  #vertretung .vp-kind { float: none; }
+  #vertretung .vp-fuss, #vertretung .vp-leer { width: 100%; }
   @media (max-width: 700px) { #vertretung .vp-kind { width: 100%; float: none; margin-right: 0; } }
 </style>
 <div class="fuss">Daten: MVV-Fahrplanauskunft mit Echtzeit, ohne Gewähr. Aktualisierung alle 60 Sekunden.</div>
