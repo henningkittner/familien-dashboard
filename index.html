@@ -285,48 +285,39 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .ausfall .ziel, .ausfall .zeit .min { color: #ff6b6b; }
   .hinweis { color: #a9bff2 !important; border-top-color: rgba(255,255,255,.18) !important; }
   .kopf h1:before { background: #ec0016 !important; }
-  #laufband { margin: 0 10px; background: #fff; color: #0d3082; overflow: hidden; white-space: nowrap; height: 26px; line-height: 26px;
-    font-size: 16px; font-weight: 700; border-radius: 0 0 12px 12px; }
-  #laufband-text { display: inline-block; padding-left: 100%; -webkit-animation: lauf 20s linear infinite; animation: lauf 20s linear infinite; }
-  @-webkit-keyframes lauf { from { -webkit-transform: translateX(0); } to { -webkit-transform: translateX(-100%); } }
-  @keyframes lauf { from { transform: translateX(0); } to { transform: translateX(-100%); } }
-  .raster { border-radius: 14px 14px 0 0 !important; }
+  .ziel-lauf { display: inline-block; white-space: nowrap; }
 </style>
 <script>
-/* Laufschrift unter den Abfahrten (wie am Bahnsteig): Verspätungen und Ausfälle, sonst ein Gruß. ES5. */
+/* Zu lange Ziele (z. B. "Brunnthal, Zusestraße") wandern langsam hin und her, damit man den ganzen Namen lesen kann. ES5. */
 (function () {
-  var letzte = {}, altFiltere = filtere, altZeichne = zeichneKarte;
-  var band = document.createElement("div");
-  band.id = "laufband";
-  band.innerHTML = '<div id="laufband-text"></div>';
-  document.getElementById("raster").parentNode.insertBefore(band, document.getElementById("raster").nextSibling);
-  filtere = function (k, abfahrten) {
-    var r = altFiltere(k, abfahrten);
-    letzte[k.titel] = r;
-    return r;
-  };
-  zeichneKarte = function (i, inhalt) { altZeichne(i, inhalt); setTimeout(neu, 50); };
-  var bisher = "";
-  function neu() {
-    var teile = [];
-    for (var i = 0; i < CONFIG.karten.length; i++) {
-      var k = CONFIG.karten[i], l = letzte[k.titel] || [];
-      for (var j = 0; j < l.length; j++) {
-        var a = l[j], plan = hhmm(new Date(a.plan)), v = a.echt ? Math.round((a.echt - a.plan) / 60000) : 0;
-        var wer = (a.sbahn ? "S3" : "Bus " + a.linie) + " nach " + a.ziel + " (" + plan + " Uhr)";
-        if (a.ausfall) teile.push(wer + " fällt heute aus");
-        else if (v >= 3) teile.push(wer + " ca. " + v + " Minuten später");
-      }
+  var altZeichne = zeichneKarte, PX_PRO_SEK = 30, PAUSE_MS = 2000;
+  zeichneKarte = function (i, inhalt) { altZeichne(i, inhalt); vorbereiten(document.getElementById("karte" + i)); };
+  function vorbereiten(karte) {
+    if (!karte) return;
+    var ziele = karte.querySelectorAll(".ziel");
+    for (var n = 0; n < ziele.length; n++) {
+      var z = ziele[n];
+      if (z.scrollWidth <= z.clientWidth + 1) continue;
+      z.innerHTML = '<span class="ziel-lauf">' + z.innerHTML + "</span>";
+      z.style.textOverflow = "clip";
     }
-    var text = teile.length ? "Bitte beachten: " + teile.join("  +++  ") : "Keine Verspätungen gemeldet. Wir wünschen eine gute Fahrt!";
-    if (text === bisher) return;
-    bisher = text;
-    var el = document.getElementById("laufband-text");
-    el.innerHTML = esc(text) + "&nbsp;&nbsp;&nbsp;+++&nbsp;&nbsp;&nbsp;";
-    var dauer = Math.max(12, Math.round(text.length / 7)); // ca. 7 Zeichen pro Sekunde
-    el.style.webkitAnimationDuration = dauer + "s";
-    el.style.animationDuration = dauer + "s";
   }
+  var hin = false;
+  function schritt() {
+    hin = !hin;
+    var spans = document.querySelectorAll(".ziel-lauf"), laengste = 0;
+    for (var n = 0; n < spans.length; n++) {
+      var s = spans[n], weg = s.scrollWidth - s.parentNode.clientWidth;
+      if (weg < 0) weg = 0;
+      var dauer = weg / PX_PRO_SEK;
+      if (dauer > laengste) laengste = dauer;
+      s.style.webkitTransition = s.style.transition = "-webkit-transform " + dauer + "s linear, transform " + dauer + "s linear";
+      var x = hin ? "translateX(-" + weg + "px)" : "translateX(0)";
+      s.style.webkitTransform = x; s.style.transform = x;
+    }
+    setTimeout(schritt, laengste * 1000 + PAUSE_MS);
+  }
+  setTimeout(schritt, PAUSE_MS);
   aktualisiere();
 })();
 
