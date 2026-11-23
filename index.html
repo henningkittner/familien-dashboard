@@ -49,41 +49,42 @@
 </style>
 <style>
   .kopf { padding: 8px 16px 2px; }
-  .kopf h1 { font-size: 20px; }
-  .uhr { font-size: 30px; }
-  .stand { font-size: 12px; padding-top: 2px; }
+  .kopf h1 { font-size: 24px; }
+  .uhr { font-size: 36px; }
+  .stand { font-size: 14px; padding-top: 2px; }
   .raster { padding: 2px 8px 4px; overflow: hidden; }
   .karte { width: -webkit-calc(25% - 8px); width: calc(25% - 8px); margin: 4px; padding: 8px 10px 4px; min-height: 0; border-radius: 10px; }
   @media (max-width: 900px) { .karte { width: -webkit-calc(50% - 8px); width: calc(50% - 8px); } }
-  .karte h2 { font-size: 17px; }
-  .karte .unter { font-size: 11px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .zeile { padding: 3px 0; font-size: 16px; line-height: 24px; }
-  .linie { min-width: 36px; font-size: 14px; margin-right: 6px; padding: 0 4px; }
+  .karte h2 { font-size: 20px; }
+  .karte .unter { font-size: 13px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .zeile { padding: 3px 0; font-size: 19px; line-height: 29px; }
+  .linie { min-width: 42px; font-size: 17px; margin-right: 6px; padding: 0 4px; }
   .linie.sbahn { border-radius: 12px; }
+  .karte .linie { display: none; } /* Linie steht schon im Kartentitel, so bleibt Platz für das Ziel */
   .zeit { margin-left: 6px; }
-  .zeit .min { font-size: 18px; }
-  .zeit .uhrzeit { font-size: 11px; line-height: 11px; }
-  .hinweis { font-size: 13px; padding: 6px 0; }
-  .fuss { font-size: 10px; padding: 0 16px 6px; }
+  .zeit .min { font-size: 22px; }
+  .zeit .uhrzeit { font-size: 13px; line-height: 13px; }
+  .hinweis { font-size: 16px; padding: 6px 0; }
+  .fuss { font-size: 12px; padding: 0 16px 6px; }
   .vp-bereich { padding: 0 12px 4px !important; }
-  .vp-titel { font-size: 18px !important; margin: 4px 0 4px !important; }
+  .vp-titel { font-size: 22px !important; margin: 4px 0 4px !important; }
   #vertretung .vp-kind { padding: 8px 12px; margin-bottom: 6px; border-radius: 10px; }
-  #vertretung .vp-kopf { font-size: 18px; margin-bottom: 2px; }
-  #vertretung .vp-kopf small { font-size: 12px; }
+  #vertretung .vp-kopf { font-size: 22px; margin-bottom: 2px; }
+  #vertretung .vp-kopf small { font-size: 14px; }
   #vertretung .vp-tag { margin-top: 4px; }
-  #vertretung .vp-tagname { font-size: 11px; margin-bottom: 2px; }
-  #vertretung .vp-zeile { font-size: 14px; padding: 3px 8px; margin-bottom: 3px; border-left-width: 4px; }
-  #vertretung .vp-std { width: 34px; }
-  #vertretung .vp-info { font-size: 11px; margin-top: 0; }
-  #vertretung .vp-ok { font-size: 13px; padding: 1px 0; }
-  #vertretung .vp-hinweis { font-size: 12px; padding: 1px 0; }
-  #vertretung .vp-fuss { font-size: 10px; }
+  #vertretung .vp-tagname { font-size: 13px; margin-bottom: 2px; }
+  #vertretung .vp-zeile { font-size: 17px; padding: 3px 8px; margin-bottom: 3px; border-left-width: 4px; }
+  #vertretung .vp-std { width: 40px; }
+  #vertretung .vp-info { font-size: 13px; margin-top: 0; }
+  #vertretung .vp-ok { font-size: 16px; padding: 1px 0; }
+  #vertretung .vp-hinweis { font-size: 14px; padding: 1px 0; }
+  #vertretung .vp-fuss { font-size: 12px; }
   .kopf h1 { margin-right: 18px; }
   #wetter { float: right; margin-right: 28px; margin-top: -4px; line-height: 1; }
-  #wetter .w-symbol { float: left; font-size: 40px; line-height: 44px; margin-right: 8px; }
+  #wetter .w-symbol { float: left; font-size: 48px; line-height: 53px; margin-right: 8px; }
   #wetter .w-werte { float: left; }
-  #wetter .w-temp { display: block; font-size: 28px; font-weight: 600; color: #f2f4f7; line-height: 30px; }
-  #wetter .w-klein { display: block; font-size: 12px; color: #8a96a8; line-height: 14px; white-space: nowrap; }
+  #wetter .w-temp { display: block; font-size: 34px; font-weight: 600; color: #f2f4f7; line-height: 36px; }
+  #wetter .w-klein { display: block; font-size: 14px; color: #8a96a8; line-height: 17px; white-space: nowrap; }
   #wetter .w-regen { color: #7fb8ff; }
 </style>
 </head>
