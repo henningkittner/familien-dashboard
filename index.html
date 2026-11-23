@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Abfahrten">
+<title>Familien-Dashboard</title>
+<style>
+  /* Bewusst einfaches CSS, damit es auch auf alten iPads (iOS 9+) läuft */
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: #10151c; color: #f2f4f7;
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .kopf { padding: 16px 24px 8px; overflow: hidden; }
+  .kopf h1 { float: left; margin: 0; font-size: 28px; font-weight: 600; }
+  .uhr { float: right; font-size: 40px; font-weight: 300; line-height: 1; }
+  .stand { clear: both; font-size: 14px; color: #8a96a8; padding-top: 4px; }
+  .stand.fehler { color: #ff8a80; }
+  .raster { padding: 8px 16px 16px; }
+  .karte {
+    background: #1b2330; border-radius: 12px; margin: 8px;
+    padding: 12px 16px 8px; box-sizing: border-box;
+    width: -webkit-calc(50% - 16px); width: calc(50% - 16px);
+    float: left; min-height: 260px;
+  }
+  @media (max-width: 700px) { .karte { width: -webkit-calc(100% - 16px); width: calc(100% - 16px); float: none; } }
+  .karte h2 { margin: 0 0 2px; font-size: 22px; font-weight: 600; }
+  .karte .unter { font-size: 14px; color: #8a96a8; margin-bottom: 8px; }
+  .zeile { overflow: hidden; padding: 7px 0; border-top: 1px solid #2a3444; font-size: 22px; line-height: 32px; }
+  .linie {
+    float: left; min-width: 52px; text-align: center; border-radius: 6px;
+    font-weight: 700; margin-right: 12px; font-size: 20px; padding: 0 6px;
+  }
+  .linie.bus { background: #0d5c63; color: #fff; }
+  .linie.sbahn { background: #408335; color: #fff; border-radius: 16px; } /* S3: lila wäre MVV-Original, grün = gut lesbar */
+  .linie.s3 { background: #7b107f; }
+  .ziel { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .zeit { float: right; text-align: right; margin-left: 12px; font-weight: 600; }
+  .zeit .min { font-size: 26px; }
+  .zeit .uhrzeit { font-size: 14px; color: #8a96a8; font-weight: 400; display: block; line-height: 14px; }
+  .spaet { color: #ffb74d; }
+  .ausfall .ziel, .ausfall .zeit .min { text-decoration: line-through; color: #ff8a80; }
+  .hinweis { font-size: 16px; color: #8a96a8; padding: 12px 0; }
+  .fuss { clear: both; font-size: 12px; color: #5d6a7e; padding: 0 24px 16px; }
+</style>
+</head>
+<body>
+<div class="kopf">
+  <h1>Abfahrten</h1>
+  <div class="uhr" id="uhr">--:--</div>
+  <div class="stand" id="stand">Lade …</div>
+</div>
+<div class="raster" id="raster"></div>
+<div class="vp-bereich">
+  <h2 class="vp-titel">Vertretungsplan</h2>
+  <div id="vertretung"></div>
+</div>
+<style>
+  .vp-bereich { clear: both; padding: 0 24px 8px; overflow: hidden; }
+  .vp-titel { margin: 8px 0 8px; font-size: 26px; font-weight: 600; }
+  #vertretung .vp-kind { box-sizing: border-box; float: left; width: -webkit-calc(50% - 8px); width: calc(50% - 8px); margin-right: 16px; }
+  #vertretung .vp-kind:nth-child(2n) { margin-right: 0; }
+  #vertretung .vp-fuss { clear: both; }
+  @media (max-width: 700px) { #vertretung .vp-kind { width: 100%; float: none; margin-right: 0; } }
+</style>
+<div class="fuss">Daten: MVV-Fahrplanauskunft mit Echtzeit, ohne Gewähr. Aktualisierung alle 60 Sekunden.</div>
+
+<script>
+// ============================================================
+// EINSTELLUNGEN  – hier anpassen
+// ============================================================
+var CONFIG = {
+  // Alle Daten kommen direkt von der MVV-Fahrplanauskunft (mit Echtzeit), ohne Zwischenserver.
+  aktualisierenSek: 60,
+  maxZeilen: 4,
+  karten: [
+    // Busse: Haltestelle Unterhaching, Goerdelerstraße.
+    // Steig 2 = Richtung Bahnhof Unterhaching (217 nach "Unterhaching (S)", 220 über Bahnhof nach Winning/Brunnthal).
+    { titel: "Bus 217", unter: "ab Goerdelerstraße → Bahnhof Unterhaching", quelle: "mvv",
+      station: "de:09184:2374", linien: ["217"], steig: "2" },
+    { titel: "Bus 220", unter: "ab Goerdelerstraße → Bahnhof Unterhaching", quelle: "mvv",
+      station: "de:09184:2374", linien: ["220"], steig: "2" },
+    // S3: S-Bahnhof Unterhaching, Gleis 2 = Holzkirchen, Gleis 1 = Mammendorf.
+    { titel: "S3 → Holzkirchen", unter: "ab Unterhaching, Gleis 2", quelle: "mvv",
+      station: "de:09184:2310", linien: ["S3"], steig: "2" },
+    { titel: "S3 → Mammendorf", unter: "ab Unterhaching, Gleis 1", quelle: "mvv",
+      station: "de:09184:2310", linien: ["S3"], steig: "1" }
+  ]
+};
+// ============================================================
+
+var DEMO = /[?&]demo=1/.test(location.search);
+var EFA = "https://efa.mvv-muenchen.de/ng/XML_DM_REQUEST?outputFormat=rapidJSON&type_dm=any&mode=direct&useRealtime=1&limit=40&name_dm=";
+var jsonpNr = 0;
+
+// JSONP: lädt die Daten per <script>-Tag. So erlaubt die MVV den Abruf von jeder Webseite aus.
+function holeJsonp(url, ok, fehler) {
+  var name = "mvvAntwort" + (++jsonpNr), tag = document.createElement("script"), erledigt = false;
+  function aufraeumen() { erledigt = true; try { delete window[name]; } catch (e) { window[name] = undefined; } if (tag.parentNode) tag.parentNode.removeChild(tag); }
+  window[name] = function (d) { if (erledigt) return; aufraeumen(); ok(d); };
+  tag.onerror = function () { if (erledigt) return; aufraeumen(); fehler("Netzwerkfehler"); };
+  setTimeout(function () { if (erledigt) return; aufraeumen(); fehler("Zeitüberschreitung"); }, 15000);
+  tag.src = url + "&jsonp=" + name + "&_=" + Date.now();
+  document.getElementsByTagName("head")[0].appendChild(tag);
+}
+
+function $(id) { return document.getElementById(id); }
+function zwei(n) { return (n < 10 ? "0" : "") + n; }
+function hhmm(d) { return zwei(d.getHours()) + ":" + zwei(d.getMinutes()); }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+// ISO-Zeit ("2026-11-23T17:30:00Z") -> Millisekunden, auch auf altem Safari
+function isoMs(s) {
+  if (!s) return null;
+  var m = /^(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+)/.exec(s);
+  return m ? Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : null;
+}
+
+// Einheitliches Format: {linie, ziel, plan, echt, ausfall, steig, sbahn}
+function vonMvv(daten) {
+  var ev = daten.stopEvents || [], raus = [];
+  for (var i = 0; i < ev.length; i++) {
+    var e = ev[i], t = e.transportation || {}, p = (e.location && e.location.properties) || {};
+    raus.push({ linie: String(t.number || t.disassembledName || ""), ziel: (t.destination && t.destination.name) || "",
+      plan: isoMs(e.departureTimePlanned), echt: isoMs(e.departureTimeEstimated), ausfall: !!e.isCancelled,
+      steig: p.platform ? String(p.platform) : "", sbahn: !!(t.product && t.product.class === 1) });
+  }
+  return raus;
+}
+
+var cache = {};
+function holeAbfahrten(k, ok, fehler) {
+  if (DEMO) { ok(demoDaten(k)); return; }
+  var schluessel = k.quelle + k.station;
+  if (cache[schluessel] && cache[schluessel].zeit > Date.now() - 20000) { ok(cache[schluessel].daten); return; }
+  function merken(d) { cache[schluessel] = { zeit: Date.now(), daten: d }; ok(d); }
+  holeJsonp(EFA + encodeURIComponent(k.station), function (d) { merken(vonMvv(d)); }, fehler);
+}
+
+function filtere(k, abfahrten) {
+  var jetzt = Date.now(), raus = [];
+  for (var i = 0; i < abfahrten.length; i++) {
+    var a = abfahrten[i];
+    if (k.linien.indexOf(a.linie) < 0) continue;
+    if (k.steig && a.steig && a.steig !== k.steig) continue;
+    if ((a.echt || a.plan) < jetzt - 30000) continue;
+    raus.push(a);
+  }
+  raus.sort(function (x, y) { return (x.echt || x.plan) - (y.echt || y.plan); });
+  return raus.slice(0, CONFIG.maxZeilen);
+}
+
+function zeileHtml(a) {
+  var t = new Date(a.echt || a.plan);
+  var min = Math.max(0, Math.round((t.getTime() - Date.now()) / 60000));
+  var verspaetung = a.echt ? Math.round((a.echt - a.plan) / 60000) : 0;
+  var minText = a.ausfall ? "fällt aus" : (min === 0 ? "jetzt" : min + " min");
+  var zusatz = hhmm(new Date(a.plan)) + (verspaetung > 0 ? ' <span class="spaet">+' + verspaetung + "</span>" : "") + (a.echt ? "" : " (Plan)");
+  return '<div class="zeile' + (a.ausfall ? " ausfall" : "") + '">' +
+    '<span class="' + (a.sbahn ? "linie sbahn s3" : "linie bus") + '">' + esc(a.linie) + "</span>" +
+    '<span class="zeit"><span class="min' + (verspaetung > 2 ? " spaet" : "") + '">' + minText + '</span><span class="uhrzeit">' + zusatz + "</span></span>" +
+    '<div class="ziel">' + esc(a.ziel) + "</div></div>";
+}
+
+function zeichneKarte(i, inhalt) {
+  var k = CONFIG.karten[i];
+  $("karte" + i).innerHTML = "<h2>" + esc(k.titel) + '</h2><div class="unter">' + esc(k.unter) + "</div>" + inhalt;
+}
+
+function aktualisiere() {
+  var offen = CONFIG.karten.length, fehlerTexte = [];
+  function fertig() {
+    offen--;
+    if (offen > 0) return;
+    var s = $("stand");
+    if (fehlerTexte.length) { s.className = "stand fehler"; s.innerHTML = "Problem: " + esc(fehlerTexte[0]) + " · " + hhmm(new Date()); }
+    else { s.className = "stand"; s.innerHTML = (DEMO ? "DEMO-Daten · " : "") + "Stand " + hhmm(new Date()); }
+  }
+  for (var i = 0; i < CONFIG.karten.length; i++) {
+    (function (i) {
+      var k = CONFIG.karten[i];
+      holeAbfahrten(k, function (liste) {
+        var zeilen = filtere(k, liste), html = "";
+        for (var j = 0; j < zeilen.length; j++) html += zeileHtml(zeilen[j]);
+        zeichneKarte(i, html || '<div class="hinweis">Keine Abfahrten gefunden</div>');
+        fertig();
+      }, function (err) {
+        fehlerTexte.push(err);
+        zeichneKarte(i, '<div class="hinweis">Keine Daten: ' + esc(err) + "</div>");
+        fertig();
+      });
+    })(i);
+  }
+}
+
+// Beispieldaten zum Testen des Layouts: abfahrten.html?demo=1
+function demoDaten(k) {
+  var jetzt = Date.now(), raus = [], bus = k.linien[0].charAt(0) !== "S";
+  var ziele = bus ? (k.linien[0] === "217" ? ["Unterhaching (S)"] : ["Brunnthal, Zusestraße", "Winning, Riegerweg/Altersheim"])
+                  : (k.steig === "2" ? ["Holzkirchen", "Deisenhofen"] : ["Mammendorf", "Ostbahnhof"]);
+  for (var n = 0; n < 6; n++) {
+    var plan = jetzt + (2 + n * (bus ? 10 : 20)) * 60000, delay = n === 1 ? 3 : 0;
+    raus.push({ linie: k.linien[0], ziel: ziele[n % ziele.length], plan: plan, echt: plan + delay * 60000,
+      ausfall: n === 3 && !bus, steig: k.steig, sbahn: !bus });
+  }
+  return raus;
+}
+
+function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
+
+(function start() {
+  var html = "";
+  for (var i = 0; i < CONFIG.karten.length; i++) html += '<div class="karte" id="karte' + i + '"></div>';
+  $("raster").innerHTML = html;
+  uhr(); setInterval(uhr, 5000);
+  aktualisiere(); setInterval(aktualisiere, CONFIG.aktualisierenSek * 1000);
+  // Alle 6 Stunden komplett neu laden (hält die Seite frisch)
+  setTimeout(function () { location.reload(); }, 6 * 3600 * 1000);
+})();
+</script>
+<script>
+/*
+ * Vertretungsplan-Baustein fürs iPad-Dashboard (ohne Server).
+ *
+ * Ein iOS-Kurzbefehl holt den Vertretungsplan aus dem Eltern-Portal und
+ * öffnet das Dashboard mit den Daten im Link-Hash:
+ *     https://<dashboard>/#vp=<Base64>
+ * Base64-Inhalt (UTF-8): pro Kind  "Name\n<HTML der Vertretungsplan-Seite>",
+ * Kinder getrennt durch "@@KIND@@".
+ * Der Hash wird nie an einen Server geschickt. Die Seite merkt sich die
+ * Daten im localStorage des iPads und entfernt sie danach aus der Adresse.
+ *
+ * Einbinden:  <div id="vertretung"></div>
+ *             Skript vertretung-ipad.js laden, dann Vertretung.start("vertretung")
+ * ES5, damit es auch in älteren Safaris läuft.
+ */
+(function () {
+  var SPEICHER = "vertretungsplan_v1";
+  var TAGE_ANZEIGEN = 2;
+  var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+
+  function iso(d) {
+    var m = d.getMonth() + 1, t = d.getDate();
+    return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (t < 10 ? "0" : "") + t;
+  }
+  function txt(el) {
+    return (el ? el.textContent : "").replace(/ /g, " ").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+  }
+  function esc(t) {
+    return String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function art(info, betrifft, vertretung, fach) {
+    var i = info.toLowerCase();
+    if (/entf|fällt aus|(^|\W)frei(\W|$)|selbststudium|ausfall/.test(i)) return "entfall";
+    if (!vertretung && !fach) return "entfall";
+    if (vertretung && vertretung !== betrifft) return "vertretung";
+    if (i.indexOf("raum") >= 0) return "raum";
+    return "sonstiges";
+  }
+
+  /* Zerlegt die Seite /service/vertretungsplan (gleiche Logik wie das Python-Skript) */
+  function parsen(html) {
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    var inhalt = doc.getElementById("asam_content") || doc.body;
+    var h2 = inhalt.querySelector("h2");
+    var km = txt(h2).match(/Klasse\s+(\S+)/);
+    var plan = { klasse: km ? km[1] : "", stand: "", tage: [] };
+    var mitte = inhalt.querySelector(".main_center") || inhalt;
+    var tag = null, kinder = mitte.children;
+    for (var n = 0; n < kinder.length; n++) {
+      var el = kinder[n], t = txt(el);
+      if (el.tagName === "DIV" && /(^|\s)list(\s|$)/.test(el.className)) {
+        if (/^Stand/.test(t)) { plan.stand = t.replace(/^Stand:?\s*/, ""); continue; }
+        var d = t.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+        if (d) {
+          var datum = d[3] + "-" + d[2] + "-" + d[1];
+          tag = { datum: datum, wochentag: WT[new Date(+d[3], +d[2] - 1, +d[1]).getDay()], eintraege: [], hinweise: [] };
+          plan.tage.push(tag);
+        }
+      } else if (el.tagName === "TABLE" && tag) {
+        var spalten = {}, anzahl = 0, zeilen = el.querySelectorAll("tr");
+        var kopf = el.querySelector("tr.vp_plan_head");
+        if (kopf) {
+          var kz = kopf.querySelectorAll("td");
+          for (var a = 0; a < kz.length; a++) { spalten[txt(kz[a]).replace(/\.$/, "").toLowerCase()] = a; anzahl++; }
+        }
+        for (var z = 0; z < zeilen.length; z++) {
+          if (/vp_plan_head/.test(zeilen[z].className)) continue;
+          var c = zeilen[z].querySelectorAll("td");
+          if (c.length <= 1 || c.length !== anzahl) {
+            var h = txt(zeilen[z]);
+            if (h && !/^keine vertretungen/i.test(h)) tag.hinweise.push(h);
+            continue;
+          }
+          var feld = function (name) { return spalten.hasOwnProperty(name) ? txt(c[spalten[name]]) : ""; };
+          var fachAlt = "", fach = feld("fach");
+          if (spalten.hasOwnProperty("fach")) {
+            var zelle = c[spalten.fach].cloneNode(true);
+            var alt = zelle.querySelectorAll("span[style*='line-through'], s, del, strike"), teile = [];
+            for (var s = 0; s < alt.length; s++) { teile.push(txt(alt[s])); alt[s].parentNode.removeChild(alt[s]); }
+            fachAlt = teile.join(" ").replace(/^\s+|\s+$/g, "");
+            fach = txt(zelle);
+          }
+          var info = feld("info"), betrifft = feld("betrifft"), vertretung = feld("vertretung");
+          tag.eintraege.push({ stunde: feld("std").replace(/\.$/, ""), betrifft: betrifft, vertretung: vertretung,
+            fach_alt: fachAlt, fach: fach, raum: feld("raum"), info: info, art: art(info, betrifft, vertretung, fach) });
+        }
+      }
+    }
+    return plan;
+  }
+
+  function ausHash() {
+    var m = location.hash.match(/[#&]vp=([^&]+)/);
+    if (!m) return null;
+    var roh = decodeURIComponent(m[1]).replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/");
+    var text = decodeURIComponent(escape(atob(roh)));
+    var bloecke = text.split(/\s*@@KIND@@\s*/), kinder = [];
+    for (var i = 0; i < bloecke.length; i++) {
+      var b = bloecke[i].replace(/^\s+/, "");
+      if (!b) continue;
+      var nl = b.indexOf("\n");
+      var name = (nl > 0 ? b.slice(0, nl) : "Kind " + (i + 1)).split("(")[0].replace(/^\s+|\s+$/g, "");
+      var plan = parsen(nl > 0 ? b.slice(nl + 1) : b);
+      plan.name = name;
+      kinder.push(plan);
+    }
+    return { aktualisiert: new Date().getTime(), kinder: kinder };
+  }
+
+  function speichern(d) { try { localStorage.setItem(SPEICHER, JSON.stringify(d)); } catch (e) {} }
+  function laden() { try { return JSON.parse(localStorage.getItem(SPEICHER)); } catch (e) { return null; } }
+
+  function tagName(datum) {
+    var h = new Date(), m = new Date(); m.setDate(m.getDate() + 1);
+    var p = datum.split("-"), wt = WT[new Date(+p[0], +p[1] - 1, +p[2]).getDay()];
+    var kurz = wt + " " + p[2] + "." + p[1] + ".";
+    if (datum === iso(h)) return "Heute · " + kurz;
+    if (datum === iso(m)) return "Morgen · " + kurz;
+    return kurz;
+  }
+  function eintrag(e) {
+    var fach = e.fach_alt && e.fach_alt !== e.fach ? "<s>" + esc(e.fach_alt) + "</s> " + esc(e.fach) : esc(e.fach || e.fach_alt);
+    var titel;
+    if (e.art === "entfall") titel = "<b>" + (fach || "Stunde") + " entfällt</b>";
+    else if (e.art === "vertretung") titel = "<b>" + fach + "</b> bei " + esc(e.vertretung) + (e.raum ? " · " + esc(e.raum) : "");
+    else titel = "<b>" + fach + "</b>" + (e.raum ? " · Raum " + esc(e.raum) : "");
+    return '<div class="vp-zeile vp-' + esc(e.art) + '"><div class="vp-std">' + esc(e.stunde) + '.</div><div class="vp-was">' +
+      titel + (e.info ? '<span class="vp-info">' + esc(e.info) + "</span>" : "") + "</div></div>";
+  }
+  function zeichnen(ziel, d) {
+    if (!d || !d.kinder) {
+      ziel.innerHTML = '<div class="vp-leer">Noch keine Daten. Bitte den Kurzbefehl „Vertretungsplan“ einmal starten.</div>';
+      return;
+    }
+    var heute = iso(new Date()), html = "";
+    for (var i = 0; i < d.kinder.length; i++) {
+      var k = d.kinder[i], gezeigt = 0;
+      html += '<div class="vp-kind"><div class="vp-kopf">' + esc(k.name) + (k.klasse ? "<small>Klasse " + esc(k.klasse) + "</small>" : "") + "</div>";
+      for (var j = 0; j < k.tage.length && gezeigt < TAGE_ANZEIGEN; j++) {
+        var t = k.tage[j];
+        if (t.datum < heute) continue;
+        gezeigt++;
+        html += '<div class="vp-tag"><div class="vp-tagname">' + tagName(t.datum) + "</div>";
+        if (!t.eintraege.length && !t.hinweise.length) html += '<div class="vp-ok">✓ Keine Änderungen</div>';
+        for (var n = 0; n < t.hinweise.length; n++) html += '<div class="vp-hinweis">' + esc(t.hinweise[n]) + "</div>";
+        for (var x = 0; x < t.eintraege.length; x++) html += eintrag(t.eintraege[x]);
+        html += "</div>";
+      }
+      if (!gezeigt) html += '<div class="vp-ok">Noch kein Plan für die nächsten Tage</div>';
+      html += "</div>";
+    }
+    var alter = Math.round((new Date().getTime() - d.aktualisiert) / 60000);
+    var zeit = new Date(d.aktualisiert);
+    var hhmm = (zeit.getHours() < 10 ? "0" : "") + zeit.getHours() + ":" + (zeit.getMinutes() < 10 ? "0" : "") + zeit.getMinutes();
+    html += '<div class="vp-fuss' + (alter > 6 * 60 ? " vp-alt" : "") + '">Abgerufen ' +
+      (iso(zeit) === heute ? "heute " : WT[zeit.getDay()] + " ") + hhmm + "</div>";
+    ziel.innerHTML = html;
+  }
+
+  var CSS =
+    ".vp-kind{background:#1b212b;border-radius:12px;padding:14px 16px;margin-bottom:14px}" +
+    ".vp-kopf{font-size:26px;font-weight:700;margin-bottom:8px}.vp-kopf small{font-size:16px;font-weight:400;color:#9aa6b5;margin-left:8px}" +
+    ".vp-tag{margin-top:10px}.vp-tagname{font-size:15px;text-transform:uppercase;color:#9aa6b5;margin-bottom:4px}" +
+    ".vp-zeile{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:baseline;align-items:baseline;padding:8px 10px;border-radius:8px;margin-bottom:6px;font-size:20px}" +
+    ".vp-std{width:56px;-webkit-flex-shrink:0;flex-shrink:0;font-weight:700}.vp-was{-webkit-flex:1;flex:1}" +
+    ".vp-info{display:block;font-size:15px;opacity:.85;margin-top:2px}.vp-was s{opacity:.6}" +
+    ".vp-entfall{background:#4a1f24;border-left:6px solid #ff5d6c}.vp-vertretung{background:#4a3a14;border-left:6px solid #ffc53d}" +
+    ".vp-raum,.vp-sonstiges{background:#1f3346;border-left:6px solid #5aa9ff}" +
+    ".vp-ok{font-size:18px;color:#7ddc8a;padding:4px 0}.vp-hinweis{font-size:16px;color:#c9d1db;padding:4px 0}" +
+    ".vp-leer{font-size:18px;color:#9aa6b5;padding:12px 0}.vp-fuss{font-size:13px;color:#6d7887;margin-top:4px}.vp-fuss.vp-alt{color:#ff8f99}";
+
+  function start(id) {
+    var ziel = document.getElementById(id);
+    if (!document.getElementById("vp-css")) {
+      var st = document.createElement("style"); st.id = "vp-css"; st.appendChild(document.createTextNode(CSS));
+      document.head.appendChild(st);
+    }
+    try {
+      var neu = ausHash();
+      if (neu) {
+        speichern(neu);
+        if (history.replaceState) history.replaceState(null, "", location.pathname + location.search);
+      }
+    } catch (e) {
+      ziel.setAttribute("data-fehler", String(e));
+    }
+    var anzeigen = function () { zeichnen(ziel, laden()); };
+    anzeigen();
+    setInterval(anzeigen, 5 * 60 * 1000); // um Mitternacht auf „Heute“ weiterschalten
+    window.addEventListener("hashchange", function () { start(id); });
+  }
+
+  window.Vertretung = { start: start, parsen: parsen };
+})();
+
+Vertretung.start("vertretung");
+</script>
+</body>
+</html>
