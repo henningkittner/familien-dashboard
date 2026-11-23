@@ -48,6 +48,7 @@
   .fuss { clear: both; font-size: 12px; color: #5d6a7e; padding: 0 24px 16px; }
 </style>
 <style>
+  html, body { height: auto !important; }
   .kopf { padding: 8px 16px 2px; }
   .kopf h1 { font-size: 24px; }
   .uhr { font-size: 36px; }
@@ -85,17 +86,15 @@
   .vp-bereich { background: #1a1424; border-radius: 14px; margin: 10px 10px 4px; padding: 6px 10px 6px !important; }
   .vp-titel:before { content: ""; display: inline-block; width: 5px; height: 20px; background: #c48bff; border-radius: 3px; margin-right: 8px; vertical-align: -2px; }
   #vertretung .vp-kind { background: #261d33; }
-  #wetter { float: right; margin-right: 28px; margin-top: -4px; line-height: 1; }
-  #wetter .w-symbol { float: left; font-size: 48px; line-height: 53px; margin-right: 8px; }
+  #wetter { float: right; margin-right: 26px; margin-top: -6px; line-height: 1; }
+  #wetter .w-symbol { float: left; margin-right: 8px; }
+  #wetter .w-symbol svg { display: block; }
   #wetter .w-werte { float: left; }
-  #wetter .w-nacht { position: relative; width: 50px; height: 44px; }
-  #wetter .w-mond { position: absolute; right: 4px; top: 2px; font-size: 22px; line-height: 24px; z-index: 0; }
-  #wetter .w-sterne { position: absolute; left: 4px; bottom: 4px; font-size: 14px; line-height: 16px; }
-  #wetter .w-wolke { position: absolute; left: 0; bottom: 0; font-size: 34px; line-height: 36px; z-index: 1; }
-  #wetter .w-wolke.klein { left: 14px; bottom: 2px; font-size: 22px; line-height: 24px; }
-  #wetter .w-temp { display: block; font-size: 34px; font-weight: 600; color: #f2f4f7; line-height: 36px; }
-  #wetter .w-klein { display: block; font-size: 14px; color: #8a96a8; line-height: 17px; white-space: nowrap; }
-  #wetter .w-regen { color: #7fb8ff; }
+  #wetter .w-temp { display: block; font-size: 32px; font-weight: 500; color: #fff; line-height: 34px; letter-spacing: -0.5px; }
+  #wetter .w-klein { display: block; font-size: 12px; font-weight: 500; color: #a8b0bd; line-height: 14px; white-space: nowrap; }
+  #wetter .w-regen { color: #7fc0ff; }
+  .uhr { font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif; font-weight: 600 !important; letter-spacing: -1px;
+    font-variant-numeric: tabular-nums; -webkit-font-feature-settings: "tnum"; font-feature-settings: "tnum"; font-size: 40px !important; }
 </style>
 </head>
 <body>
@@ -271,6 +270,28 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   setTimeout(function () { location.reload(); }, 6 * 3600 * 1000);
 })();
 </script>
+<script>
+/* Passt die Größe der ganzen Seite an die Bildschirmhöhe an, damit nie gescrollt werden muss. ES5, Safari-"zoom". */
+(function () {
+  var MIN = 0.6, MAX = 1.25;
+  function einpassen() {
+    var b = document.body, de = document.documentElement;
+    b.style.zoom = 1;
+    var z = Math.max(MIN, Math.min(MAX, window.innerHeight / b.scrollHeight * 0.99));
+    for (var runde = 0; runde < 8; runde++) {
+      b.style.zoom = z;
+      if (de.scrollHeight <= window.innerHeight + 1 || z <= MIN) break;
+      z = z * 0.97;
+    }
+  }
+  window.addEventListener("resize", einpassen);
+  window.addEventListener("orientationchange", function () { setTimeout(einpassen, 300); });
+  setTimeout(einpassen, 300);
+  setInterval(einpassen, 5000);
+  window.Einpassen = einpassen;
+})();
+
+</script>
 <style>
   /* Abfahrten im Stil einer Bahnhofsanzeige */
   .raster { background: #071d4f !important; }
@@ -341,7 +362,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 <style>
   #ruhe { position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; }
   #ruhe-mitte { position: absolute; left: 0; right: 0; top: 50%; margin-top: -110px; text-align: center; }
-  #ruhe-zeit { font-size: 170px; font-weight: 200; color: #8a8f98; line-height: 180px; letter-spacing: 2px; }
+  #ruhe-zeit { font-size: 170px; font-weight: 600; color: #8a8f98; line-height: 180px; letter-spacing: -3px; font-variant-numeric: tabular-nums; }
   #ruhe-datum { font-size: 26px; color: #565b63; margin-top: 6px; }
 </style>
 <script>
@@ -372,36 +393,84 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 
 </script>
 <script>
-/* Wetter für 82008 Unterhaching über Open-Meteo (kostenlos, ohne Schlüssel, CORS erlaubt). ES5. */
+/* Wetter für 82008 Unterhaching über Open-Meteo (kostenlos, ohne Schlüssel, CORS erlaubt). ES5.
+   Eigene SVG-Symbole im Stil der Apple-Wetter-App (gefüllt, mehrfarbig). */
 (function () {
   var URL_W = "https://api.open-meteo.com/v1/forecast?latitude=48.066&longitude=11.616" +
     "&current=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
     "&timezone=Europe%2FBerlin&forecast_days=1";
-  var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
-  function art(c, tag) {
-    var MOND = '<span class="w-mond">🌙</span>', STERNE = '<span class="w-sterne">✨</span>';
-    if (c === 0) return tag ? ["☀️", "sonnig"] : [MOND + STERNE, "sternenklar"];
-    if (c === 1) return tag ? ["🌤️", "fast klar"] : [MOND + STERNE + '<span class="w-wolke klein">☁️</span>', "fast klar"];
-    if (c === 2) return tag ? ["⛅", "teils bewölkt"] : [MOND + '<span class="w-wolke">☁️</span>', "teils bewölkt"];
-    if (c === 3) return ["☁️", "bewölkt"];
-    if (c === 45 || c === 48) return ["🌫️", "Nebel"];
-    if (c >= 51 && c <= 57) return [tag ? "🌦️" : "🌧️", "Niesel"];
-    if (c >= 61 && c <= 67) return ["🌧️", "Regen"];
-    if (c >= 71 && c <= 77) return ["🌨️", "Schnee"];
-    if (c >= 80 && c <= 82) return [tag ? "🌦️" : "🌧️", "Schauer"];
-    if (c === 85 || c === 86) return ["🌨️", "Schneeschauer"];
-    if (c >= 95) return ["⛈️", "Gewitter"];
-    return ["", ""];
+  var GELB = "#FFC933", WOLKE = "#F2F3F7", WOLKE_N = "#C9CED8", BLAU = "#4DA8F7", MOND = "#F4F1E3";
+  function wolke(f, dx, dy, s) {
+    return '<path transform="translate(' + (dx || 0) + "," + (dy || 0) + ") scale(" + (s || 1) + ')" fill="' + f +
+      '" d="M17 44h29a9.5 9.5 0 0 0 .6-19A13 13 0 0 0 21.5 22 10.5 10.5 0 0 0 17 44z"/>';
+  }
+  function sonne(cx, cy, r) {
+    var s = '<g fill="' + GELB + '"><circle cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>';
+    for (var i = 0; i < 8; i++) {
+      var w = i * Math.PI / 4, a = r + 4, b = r + 9;
+      s += '<line x1="' + (cx + a * Math.cos(w)) + '" y1="' + (cy + a * Math.sin(w)) + '" x2="' + (cx + b * Math.cos(w)) + '" y2="' + (cy + b * Math.sin(w)) +
+        '" stroke="' + GELB + '" stroke-width="3.5" stroke-linecap="round"/>';
+    }
+    return s + "</g>";
+  }
+  function mond(cx, cy, r) { // Sichel aus zwei Kreisen
+    return '<path fill="' + MOND + '" d="M' + (cx + r * 0.25) + " " + (cy - r) + "A" + r + " " + r + " 0 1 0 " + (cx + r) + " " + (cy + r * 0.35) +
+      "A" + (r * 0.85) + " " + (r * 0.85) + " 0 0 1 " + (cx + r * 0.25) + " " + (cy - r) + 'z"/>';
+  }
+  function stern(x, y, g) {
+    return '<path fill="' + MOND + '" d="M' + x + " " + (y - g) + "L" + (x + g * 0.3) + " " + (y - g * 0.3) + "L" + (x + g) + " " + y + "L" + (x + g * 0.3) + " " + (y + g * 0.3) +
+      "L" + x + " " + (y + g) + "L" + (x - g * 0.3) + " " + (y + g * 0.3) + "L" + (x - g) + " " + y + "L" + (x - g * 0.3) + " " + (y - g * 0.3) + 'z"/>';
+  }
+  function tropfen(n) {
+    var s = "", xs = n === 2 ? [26, 38] : [21, 32, 43];
+    for (var i = 0; i < xs.length; i++)
+      s += '<line x1="' + xs[i] + '" y1="49" x2="' + (xs[i] - 3) + '" y2="57" stroke="' + BLAU + '" stroke-width="3.5" stroke-linecap="round"/>';
+    return s;
+  }
+  function flocken() {
+    var s = "", xs = [21, 32, 43];
+    for (var i = 0; i < 3; i++) s += '<circle cx="' + xs[i] + '" cy="' + (i === 1 ? 55 : 51) + '" r="2.8" fill="#FFFFFF"/>';
+    return s;
+  }
+  function svg(inhalt) { return '<svg viewBox="0 0 64 64" width="52" height="52">' + inhalt + "</svg>"; }
+  function symbol(c, tag) {
+    var w = tag ? WOLKE : WOLKE_N;
+    if (c === 0) return tag ? svg(sonne(32, 32, 11)) : svg(mond(30, 32, 15) + stern(50, 16, 4) + stern(46, 46, 2.5));
+    if (c === 1 || c === 2) {
+      var hinten = tag ? sonne(40, 22, 8) : mond(40, 22, 11);
+      return svg(hinten + wolke(w, -4, 8, c === 1 ? 0.85 : 1));
+    }
+    if (c === 3) return svg(wolke(WOLKE_N, 18, 2, 0.7) + wolke(w, -4, 6));
+    if (c === 45 || c === 48) return svg(wolke(w, 0, -4) + '<g stroke="' + WOLKE_N + '" stroke-width="3.5" stroke-linecap="round"><line x1="14" y1="49" x2="50" y2="49"/><line x1="20" y1="56" x2="44" y2="56"/></g>');
+    if ((c >= 51 && c <= 57) || (c >= 80 && c <= 82 && tag)) return svg((tag ? sonne(42, 18, 7) : "") + wolke(w, -2, -2) + tropfen(2));
+    if (c >= 61 && c <= 67 || (c >= 80 && c <= 82)) return svg(wolke(w, 0, -2) + tropfen(3));
+    if ((c >= 71 && c <= 77) || c === 85 || c === 86) return svg(wolke(w, 0, -2) + flocken());
+    if (c >= 95) return svg(wolke(w, 0, -2) + '<path fill="' + GELB + '" d="M33 42l-7 11h6l-3 9 10-13h-6l4-7z"/>');
+    return svg(wolke(w, 0, 0));
+  }
+  function text(c, tag) {
+    if (c === 0) return tag ? "Sonnig" : "Klar";
+    if (c === 1) return tag ? "Überwiegend sonnig" : "Überwiegend klar";
+    if (c === 2) return "Teils bewölkt";
+    if (c === 3) return "Bewölkt";
+    if (c === 45 || c === 48) return "Nebel";
+    if (c >= 51 && c <= 57) return "Nieselregen";
+    if (c >= 61 && c <= 67) return "Regen";
+    if (c >= 71 && c <= 77) return "Schnee";
+    if (c >= 80 && c <= 82) return "Schauer";
+    if (c === 85 || c === 86) return "Schneeschauer";
+    if (c >= 95) return "Gewitter";
+    return "";
   }
   function r(x) { return Math.round(x) + "°"; }
   function zeichnen(d) {
     var el = document.getElementById("wetter");
     if (!el || !d || !d.current) return;
-    var a = art(d.current.weather_code, d.current.is_day), t = d.daily;
+    var c = d.current.weather_code, tag = d.current.is_day, t = d.daily;
     var regen = t.precipitation_probability_max ? t.precipitation_probability_max[0] : null;
-    el.innerHTML = '<span class="w-symbol' + (a[0].indexOf("w-mond") >= 0 ? " w-nacht" : "") + '">' + a[0] + '</span><span class="w-werte"><span class="w-temp">' + r(d.current.temperature_2m) +
-      '</span><span class="w-klein">' + a[1] + " · " + r(t.temperature_2m_min[0]) + " / " + r(t.temperature_2m_max[0]) +
-      (regen != null && regen >= 20 ? ' · <span class="w-regen">💧 ' + regen + " %</span>" : "") + "</span></span>";
+    el.innerHTML = '<span class="w-symbol">' + symbol(c, tag) + '</span><span class="w-werte"><span class="w-temp">' + r(d.current.temperature_2m) +
+      '</span><span class="w-klein">' + text(c, tag) + "</span><span class=\"w-klein\">H: " + r(t.temperature_2m_max[0]) + "  T: " + r(t.temperature_2m_min[0]) +
+      (regen != null && regen >= 20 ? ' · <span class="w-regen">' + regen + " % Regen</span>" : "") + "</span></span>";
   }
   function laden() {
     var x = new XMLHttpRequest();
@@ -411,6 +480,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     };
     x.send();
   }
+  window.WetterTest = { symbol: symbol, text: text };
   laden();
   setInterval(laden, 15 * 60 * 1000);
 })();
