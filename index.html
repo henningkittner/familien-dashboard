@@ -391,37 +391,40 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .ziel-lauf { display: inline-block; white-space: nowrap; }
 </style>
 <script>
-/* Zu lange Ziele (z. B. "Brunnthal, Zusestraße") wandern langsam hin und her, damit man den ganzen Namen lesen kann. ES5. */
+/* Zu lange Texte (Ziele der Abfahrten, Störungsmeldung) wandern langsam hin und her, damit man alles lesen kann.
+   Vor jeder Runde wird neu gemessen, damit auch nach Skalieren, Detailansicht oder Uhr-Ansicht alles läuft. ES5. */
 (function () {
-  var altZeichne = zeichneKarte, PX_PRO_SEK = 30, PAUSE_MS = 2000;
-  zeichneKarte = function (i, inhalt) { altZeichne(i, inhalt); vorbereiten(document.getElementById("karte" + i)); };
-  function vorbereiten(karte) {
-    if (!karte) return;
-    var ziele = karte.querySelectorAll(".ziel");
-    for (var n = 0; n < ziele.length; n++) {
-      var z = ziele[n];
-      if (z.scrollWidth <= z.clientWidth + 1) continue;
+  var PX_PRO_SEK = 30, PAUSE_MS = 2000, hin = false;
+  function vorbereiten() {
+    var boxen = document.querySelectorAll(".ziel, .st-box");
+    for (var n = 0; n < boxen.length; n++) {
+      var z = boxen[n];
+      if (z.firstChild && z.firstChild.className === "ziel-lauf") continue;
+      if (!z.clientWidth || z.scrollWidth <= z.clientWidth + 1) continue;
       z.innerHTML = '<span class="ziel-lauf">' + z.innerHTML + "</span>";
       z.style.textOverflow = "clip";
     }
   }
-  var hin = false;
   function schritt() {
-    hin = !hin;
-    var spans = document.querySelectorAll(".ziel-lauf"), laengste = 0;
-    for (var n = 0; n < spans.length; n++) {
-      var s = spans[n], weg = s.scrollWidth - s.parentNode.clientWidth;
-      if (weg < 0) weg = 0;
-      var dauer = weg / PX_PRO_SEK;
-      if (dauer > laengste) laengste = dauer;
-      s.style.webkitTransition = s.style.transition = "-webkit-transform " + dauer + "s linear, transform " + dauer + "s linear";
-      var x = hin ? "translateX(-" + weg + "px)" : "translateX(0)";
-      s.style.webkitTransform = x; s.style.transform = x;
-    }
+    var laengste = 0;
+    try {
+      vorbereiten();
+      hin = !hin;
+      var spans = document.querySelectorAll(".ziel-lauf");
+      for (var n = 0; n < spans.length; n++) {
+        var s = spans[n], weg = s.scrollWidth - s.parentNode.clientWidth;
+        if (weg < 0 || !s.parentNode.clientWidth) weg = 0;
+        var dauer = weg / PX_PRO_SEK;
+        if (dauer > laengste) laengste = dauer;
+        s.style.webkitTransition = "-webkit-transform " + dauer + "s linear";
+        s.style.transition = "transform " + dauer + "s linear";
+        var x = hin && weg ? "translate3d(-" + weg + "px,0,0)" : "translate3d(0,0,0)";
+        s.style.webkitTransform = x; s.style.transform = x;
+      }
+    } catch (e) {}
     setTimeout(schritt, laengste * 1000 + PAUSE_MS);
   }
   setTimeout(schritt, PAUSE_MS);
-  aktualisiere();
 })();
 
 </script>
@@ -500,6 +503,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   #stoerungen .st-warn { color: #ffc933; font-weight: 700; margin-right: 8px; }
   #stoerungen .linie { display: inline-block !important; float: none !important; min-width: 0; padding: 0 7px; margin: 0 6px 0 0; font-size: 14px; line-height: 21px; border-radius: 5px; background: #fff; color: #0d3082; font-weight: 700; vertical-align: 1px; }
   #stoerungen .st-text { font-weight: 500; }
+  #stoerungen .st-box { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   #stoerungen .st-zahl { float: right; color: #c9a0a0; font-size: 13px; margin-left: 10px; }
 </style>
 <script>
@@ -544,7 +548,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 /* Störungsmeldungen unter den Abfahrten. Quelle: dieselben MVV-Abfahrtsdaten (jede Abfahrt trägt "infos").
    Es werden nur Meldungen zu den Linien/Richtungen der Karten gezeigt. Eine feste Zeile, bei mehreren wechselnd. ES5. */
 (function () {
-  var proStation = {}, meldungen = [], nr = 0, timer = null, WECHSEL_SEK = 8;
+  var proStation = {}, meldungen = [], nr = 0, timer = null, WECHSEL_SEK = 20;
   var leiste = document.createElement("div");
   leiste.id = "stoerungen";
   document.getElementById("raster").appendChild(leiste);
@@ -605,7 +609,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     for (var i = 0; i < meldungen.length; i++) {
       if (!fokus && i !== nr) continue;
       html += '<div class="st-zeile">' + (!fokus && meldungen.length > 1 ? '<span class="st-zahl">' + (i + 1) + "/" + meldungen.length + "</span>" : "") +
-        '<span class="st-warn">&#9888;</span>' + schild(meldungen[i]) + '<span class="st-text">' + esc(meldungen[i].text) + "</span></div>";
+        (fokus ? "" : '<div class="st-box">') + '<span class="st-warn">&#9888;</span>' + schild(meldungen[i]) + '<span class="st-text">' + esc(meldungen[i].text) + "</span>" + (fokus ? "" : "</div>") + "</div>";
     }
     leiste.className = fokus ? "stoerung offen" : "stoerung";
     leiste.innerHTML = html;
