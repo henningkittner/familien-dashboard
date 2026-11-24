@@ -803,26 +803,72 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
-<div id="ruhe"><div id="ruhe-zeit"></div></div>
+<div id="ruhe"><div id="aod"><div id="aod-datum"></div><div id="aod-zeit"></div><div id="aod-info"><span id="aod-wetter"></span></div><div id="aod-abf"></div></div></div>
 <style>
-  #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; }
-  #ruhe-zeit { position: absolute; top: 14px; right: 20px; font-size: 22px; font-weight: 500; color: #5a5f67; font-variant-numeric: tabular-nums; }
+  #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; overflow: hidden; }
+  #aod { position: absolute; left: 0; right: 0; top: 11%; text-align: center; color: #8d939c; -webkit-transition: -webkit-transform 3s ease; transition: transform 3s ease; }
+  #aod-datum { font-size: 26px; font-weight: 500; letter-spacing: .3px; color: #7c828b; }
+  #aod-zeit { font-size: 150px; font-weight: 200; line-height: 1; letter-spacing: -2px; color: #9aa0a8; margin: 6px 0 14px; font-variant-numeric: tabular-nums; -webkit-font-feature-settings: "tnum"; }
+  #aod-info { font-size: 26px; color: #7c828b; height: 40px; line-height: 40px; }
+  .aod-wsym { display: inline-block; vertical-align: middle; margin-right: 8px; opacity: .6; }
+  .aod-wsym svg { width: 36px; height: 36px; vertical-align: middle; }
+  .aod-wtemp { vertical-align: middle; font-weight: 400; }
+  #aod-abf { margin-top: 34px; font-size: 19px; color: #6c727b; }
+  .aod-abf { display: inline-block; margin: 0 14px; white-space: nowrap; }
+  .aod-lin { display: inline-block; padding: 0 6px; margin-right: 7px; border: 1.5px solid #565c65; border-radius: 5px; font-size: 14px; font-weight: 700; line-height: 20px; color: #8d939c; vertical-align: 1px; }
+  .aod-lin.s { border-radius: 11px; padding: 0 8px; }
+  .aod-ziel { margin-right: 7px; }
+  .aod-min { color: #9aa0a8; font-weight: 600; }
 </style>
 <script>
-/* Uhr-Ansicht: nach RUHE_SEK Sekunden ohne Berührung schwarzer Bildschirm mit kleiner Uhr oben rechts,
-   rund um die Uhr. Antippen zeigt wieder das Dashboard. ES5.
+/* Uhr-Ansicht im Always-On-Stil: nach RUHE_SEK Sekunden ohne Berührung schwarzer Bildschirm mit gedimmtem Datum,
+   großer dünner Uhr, Wetter und den nächsten Abfahrten. Antippen zeigt wieder das Dashboard.
+   Gegen Einbrennen wandert der Block jede Minute ein wenig. Ecke oben links bleibt frei (Safaris X im Vollbild). ES5.
    Testen: ?nacht=1 zeigt die Uhr-Ansicht sofort, ?ohneruhe=1 schaltet sie ganz ab. */
 (function () {
   var RUHE_SEK = 300;
-  var ruhe = document.getElementById("ruhe");
+  var WT = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  var MO = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+  var KURZ = ["Giesing", "Bahnhof", "Holzkirchen", "Mammendorf"];
+  var ruhe = document.getElementById("ruhe"), block = document.getElementById("aod");
   var aus = /[?&]ohneruhe=1/.test(location.search);
-  var letzte = /[?&]nacht=1/.test(location.search) ? 0 : Date.now();
+  var letzte = /[?&]nacht=1/.test(location.search) ? 0 : Date.now(), letzteMinute = -1;
   function zwei(n) { return (n < 10 ? "0" : "") + n; }
+  function txt(el) { return el ? (el.textContent || "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "") : ""; }
+  function wetter() {
+    var w = document.getElementById("wetter"); if (!w) return "";
+    var sym = w.querySelector(".w-symbol"), temp = w.querySelector(".w-temp");
+    if (!temp) return "";
+    return '<span class="aod-wsym">' + (sym ? sym.innerHTML : "") + '</span><span class="aod-wtemp">' + txt(temp) + "</span>";
+  }
+  function abfahrten() {
+    var html = "";
+    for (var i = 0; i < 4; i++) {
+      var k = document.getElementById("karte" + i); if (!k) continue;
+      var z = k.querySelector(".zeile:not(.leer-zeile)"); if (!z) continue;
+      var lin = z.querySelector(".linie"), min = z.querySelector(".min");
+      if (!lin || !min || !txt(min)) continue;
+      html += '<span class="aod-abf"><span class="aod-lin' + (/sbahn/.test(lin.className) ? " s" : "") + '">' + txt(lin) + "</span>" +
+        '<span class="aod-ziel">' + KURZ[i] + '</span><span class="aod-min">' + txt(min) + "</span></span>";
+    }
+    return html;
+  }
+  function zeichnen(d) {
+    document.getElementById("aod-datum").innerHTML = WT[d.getDay()] + ", " + d.getDate() + ". " + MO[d.getMonth()];
+    document.getElementById("aod-zeit").innerHTML = d.getHours() + ":" + zwei(d.getMinutes());
+    document.getElementById("aod-wetter").innerHTML = wetter();
+    document.getElementById("aod-abf").innerHTML = abfahrten();
+    if (d.getMinutes() !== letzteMinute) { // langsam wandern
+      letzteMinute = d.getMinutes();
+      var x = Math.round(Math.sin(letzteMinute / 60 * 2 * Math.PI) * 40), y = Math.round(Math.cos(letzteMinute / 30 * 2 * Math.PI) * 18);
+      block.style.webkitTransform = block.style.transform = "translate(" + x + "px," + y + "px)";
+    }
+  }
   function pruefe() {
     var d = new Date();
-    document.getElementById("ruhe-zeit").innerHTML = d.getHours() + ":" + zwei(d.getMinutes());
     var soll = !aus && Date.now() - letzte >= RUHE_SEK * 1000;
     var ist = ruhe.style.display === "block";
+    if (soll) zeichnen(d);
     if (soll && !ist) {
       if (window.Fokus && /fokus-/.test(document.body.className)) window.Fokus(null);
       ruhe.style.display = "block"; window.scrollTo(0, 0);
