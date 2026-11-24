@@ -773,23 +773,31 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
+<style>html:-webkit-full-screen { width: 100%; height: 100%; background: #10151c; } :-webkit-full-screen-ancestor { background: #10151c; }</style>
 <script>
 /* Vollbild: beim Antippen wechselt Safari (iPad ab iPadOS 12) in den Vollbildmodus, ohne Adressleiste.
    Geht nur durch eine Berührung, nicht automatisch. Fällt der Vollbildmodus weg (z. B. neuer Tab vom Kurzbefehl),
-   holt ihn das nächste Antippen zurück. ?ohnevollbild=1 schaltet das ab. ES5. */
+   holt ihn das nächste Antippen zurück. ?ohnevollbild=1 schaltet das ab. ES5.
+   Nur beim "click" anfordern (wie auf der Testseite), nicht zusätzlich bei touchend: eine zweite Anforderung
+   während des Übergangs bricht den Vollbildmodus auf dem iPad wieder ab. */
 (function () {
   if (/[?&]ohnevollbild=1/.test(location.search)) return;
   var el = document.documentElement;
-  var anfordern = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen;
+  var anfordern = el.webkitRequestFullscreen || el.requestFullscreen || el.webkitRequestFullScreen;
   if (!anfordern) return;
-  function istVoll() { return !!(document.fullscreenElement || document.webkitFullscreenElement || document.webkitCurrentFullScreenElement); }
-  function los() {
-    if (istVoll()) return;
+  var gesperrtBis = 0;
+  // Hintergrund im Vollbild über die ganze Höhe (sonst bleibt unten ein weißer Streifen)
+  try { el.style.backgroundColor = window.getComputedStyle(document.body).backgroundColor || "#10151c"; } catch (e) {}
+  function istVoll() { return !!(document.webkitFullscreenElement || document.fullscreenElement || document.webkitCurrentFullScreenElement); }
+  document.addEventListener("click", function () {
+    if (istVoll() || Date.now() < gesperrtBis) return;
+    gesperrtBis = Date.now() + 2000;
     try { var p = anfordern.call(el); if (p && p["catch"]) p["catch"](function () {}); } catch (e) {}
+  }, false);
+  function neu() {
+    gesperrtBis = 0;
+    if (window.Einpassen) { window.Einpassen(); setTimeout(window.Einpassen, 400); setTimeout(window.Einpassen, 1200); }
   }
-  document.addEventListener("click", los, true);
-  document.addEventListener("touchend", los, true);
-  function neu() { if (window.Einpassen) { window.Einpassen(); setTimeout(window.Einpassen, 400); } }
   document.addEventListener("fullscreenchange", neu, false);
   document.addEventListener("webkitfullscreenchange", neu, false);
 })();
