@@ -830,11 +830,11 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; overflow: hidden; }
   #aod { position: absolute; left: 0; right: 0; top: 11%; text-align: center; color: #8d939c; opacity: .4; /* wirkt wie 0 % Helligkeit (Mina 24.11.) */ -webkit-transition: -webkit-transform 3s ease; transition: transform 3s ease; }
   #aod-datum { font-size: 26px; font-weight: 500; letter-spacing: .3px; color: #7c828b; }
-  #aod-zeit { font-size: 150px; font-weight: 200; line-height: 1; letter-spacing: -2px; color: #9aa0a8; margin: 6px 0 14px; font-variant-numeric: tabular-nums; -webkit-font-feature-settings: "tnum"; }
-  #aod-info { font-size: 34px; color: #8d939c; height: 96px; line-height: 96px; }
-  #aod-wsym { display: inline-block; width: 96px; height: 96px; vertical-align: middle; margin-right: 14px; }
-  #aod-wtemp { display: inline-block; vertical-align: middle; font-weight: 300; }
-  #aod-abf { margin-top: 22px; font-size: 19px; color: #6c727b; }
+  #aod-zeit { font-size: 84px; font-weight: 200; line-height: 1; letter-spacing: -2px; color: #9aa0a8; margin: 6px 0 14px; font-variant-numeric: tabular-nums; -webkit-font-feature-settings: "tnum"; }
+  #aod-info { font-size: 64px; color: #8d939c; margin-top: 10px; }
+  #aod-wsym { display: inline-block; width: 280px; height: 280px; vertical-align: middle; margin-right: 10px; }
+  #aod-wtemp { display: inline-block; vertical-align: middle; font-weight: 200; }
+  #aod-abf { display: none; margin-top: 22px; font-size: 19px; color: #6c727b; }
   .aod-abf { display: inline-block; margin: 0 14px; white-space: nowrap; }
   .aod-lin { display: inline-block; padding: 0 6px; margin-right: 7px; border: 1.5px solid #565c65; border-radius: 5px; font-size: 14px; font-weight: 700; line-height: 20px; color: #8d939c; vertical-align: 1px; }
   .aod-lin.s { border-radius: 11px; padding: 0 8px; }
@@ -953,7 +953,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     document.getElementById("aod-datum").innerHTML = WT[d.getDay()] + ", " + d.getDate() + ". " + MO[d.getMonth()];
     document.getElementById("aod-zeit").innerHTML = d.getHours() + ":" + zwei(d.getMinutes());
     wetter();
-    document.getElementById("aod-abf").innerHTML = abfahrten();
+    // Abfahrten in der Uhr-Ansicht auf Minas Wunsch weggelassen (abfahrten() bleibt für später)
     if (d.getMinutes() !== letzteMinute) { // langsam wandern
       letzteMinute = d.getMinutes();
       var x = Math.round(Math.sin(letzteMinute / 60 * 2 * Math.PI) * 40), y = Math.round(Math.cos(letzteMinute / 30 * 2 * Math.PI) * 18);
