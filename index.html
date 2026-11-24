@@ -107,9 +107,6 @@
 <div id="unten"><div class="vp-bereich">
   <h2 class="vp-titel">Vertretungsplan</h2>
   <div id="vertretung"></div>
-</div><div class="kal-bereich">
-  <h2 class="vp-titel kal-titel">Termine</h2>
-  <div id="kalender"></div>
 </div></div>
 <style>
   .vp-bereich { clear: both; padding: 0 24px 8px; overflow: hidden; }
@@ -619,101 +616,6 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
-<style>
-  #unten { display: -webkit-flex; display: flex; -webkit-align-items: stretch; align-items: stretch; clear: both; }
-  #unten .vp-bereich { -webkit-flex: 2.1; flex: 2.1; min-width: 0; margin-right: 0 !important; }
-  .kal-bereich { -webkit-flex: 1; flex: 1; min-width: 0; background: #14201a; border-radius: 14px; margin: 10px 10px 4px 10px; padding: 9px 12px 8px; overflow: hidden; cursor: pointer; }
-  .kal-titel:before { background: #30d158 !important; }
-  #kalender .kal-tag { font-size: 13px; font-weight: 700; color: #8f9bb0; text-transform: uppercase; letter-spacing: .5px; margin: 8px 0 3px; }
-  #kalender .kal-tag:first-child { margin-top: 2px; }
-  #kalender .kal-tag.heute { color: #30d158; }
-  #kalender .kal-termin { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; background: #1d2c24; border-radius: 8px; padding: 5px 9px; margin-bottom: 4px; font-size: 16px; }
-  #kalender .kal-termin.laeuft { background: #24452f; }
-  #kalender .kal-punkt { width: 9px; height: 9px; border-radius: 5px; margin-right: 8px; -webkit-flex-shrink: 0; flex-shrink: 0; }
-  #kalender .kal-zeit { color: #b9c4d6; font-size: 14px; font-weight: 600; width: 88px; -webkit-flex-shrink: 0; flex-shrink: 0; font-variant-numeric: tabular-nums; }
-  #kalender .kal-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-  #kalender .kal-leer, #kalender .kal-mehr { color: #8f9bb0; font-size: 14px; padding: 4px 0; }
-  body.fokus-abf .kal-bereich, body.fokus-vp .kal-bereich, body.fokus-wetter .kal-bereich { display: none !important; }
-  body.fokus-kal .abf-titel, body.fokus-kal #raster, body.fokus-kal .vp-bereich, body.fokus-kal .fuss, body.fokus-kal #wetter, body.fokus-kal .stand, body.fokus-kal #kopf-datum { display: none !important; }
-  body.fokus-kal #fokus-zurueck { display: block; }
-  body.fokus-kal #kalender { -webkit-column-count: 2; column-count: 2; -webkit-column-gap: 20px; column-gap: 20px; }
-  body.fokus-kal #kalender .kal-termin { -webkit-column-break-inside: avoid; break-inside: avoid; }
-</style>
-<script>
-/* Familienkalender: Termine kommen vom Kurzbefehl im Link-Hash (&kal=<base64>), eine Zeile pro Termin:
-   Start | Ende | Ganztägig | Kalender | Titel   (Datum als yyyy-MM-dd HH:mm). Gespeichert nur auf dem iPad. ES5. */
-(function () {
-  var SPEICHER = "kalender_v1", MAX_ZEILEN = 9, MAX_FOKUS = 40;
-  var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
-  var FARBEN = ["#ff9f0a", "#30d158", "#64d2ff", "#ff375f", "#bf5af2", "#ffd60a", "#0a84ff", "#ac8e68"];
-  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function zwei(n) { return (n < 10 ? "0" : "") + n; }
-  function datum(s) { // "2026-11-24 08:30" oder "24.11.2026, 08:30"
-    var m = /(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/.exec(s || "");
-    if (m) return new Date(+m[1], m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)).getTime();
-    m = /(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\D+(\d{1,2}):(\d{2}))?/.exec(s || "");
-    return m ? new Date(+m[3], m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0)).getTime() : null;
-  }
-  function farbe(name) { var h = 0; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 997; return FARBEN[h % FARBEN.length]; }
-  function ausHash() {
-    var m = location.hash.match(/[#&]kal=([^&]*)/);
-    if (!m) return null;
-    var roh = decodeURIComponent(m[1]).replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/"), text = "";
-    if (roh) text = decodeURIComponent(escape(atob(roh)));
-    var zeilen = text.split(/\r?\n/), termine = [];
-    for (var i = 0; i < zeilen.length; i++) {
-      var f = zeilen[i].split("|");
-      if (f.length < 5) continue;
-      var start = datum(f[0]), ende = datum(f[1]) || start;
-      if (!start) continue;
-      var ganz = /^\s*(ja|yes|true|1|wahr)\s*$/i.test(f[2]);
-      if (ganz && ende <= start) ende = start + 86400000;
-      termine.push({ start: start, ende: ende, ganz: ganz, kal: f[3].replace(/^\s+|\s+$/g, ""), titel: f.slice(4).join("|").replace(/^\s+|\s+$/g, "") });
-    }
-    termine.sort(function (a, b) { return a.start - b.start || (b.ganz ? 1 : 0) - (a.ganz ? 1 : 0); });
-    return { zeit: Date.now(), termine: termine };
-  }
-  function laden() { try { return JSON.parse(localStorage.getItem(SPEICHER)); } catch (e) { return null; } }
-  function speichern(d) { try { localStorage.setItem(SPEICHER, JSON.stringify(d)); } catch (e) {} }
-  function tagBeginn(t) { var d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
-  function tagTitel(t, heute) {
-    var diff = Math.round((t - heute) / 86400000), d = new Date(t);
-    var name = diff === 0 ? "Heute" : diff === 1 ? "Morgen" : WT[d.getDay()];
-    return name + " · " + d.getDate() + "." + (d.getMonth() + 1) + ".";
-  }
-  function zeichnen() {
-    var el = document.getElementById("kalender");
-    if (!el) return;
-    var d = laden(), jetzt = Date.now(), heute = tagBeginn(jetzt), fokus = /fokus-kal/.test(document.body.className);
-    if (!d) { el.innerHTML = '<div class="kal-leer">Noch keine Termine. Bitte den Kurzbefehl einmal starten.</div>'; return; }
-    var max = fokus ? MAX_FOKUS : MAX_ZEILEN, zeilen = 0, html = "", letzterTag = null, rest = 0;
-    for (var i = 0; i < d.termine.length; i++) {
-      var t = d.termine[i];
-      if (t.ende <= jetzt) continue;
-      var tag = Math.max(tagBeginn(t.start), heute);
-      var braucht = tag !== letzterTag ? 2 : 1;
-      if (zeilen + braucht > max) { rest++; continue; }
-      if (tag !== letzterTag) { html += '<div class="kal-tag' + (tag === heute ? " heute" : "") + '">' + tagTitel(tag, heute) + "</div>"; letzterTag = tag; zeilen++; }
-      var zeit = t.ganz ? "ganztägig" : (function (s) { var x = new Date(s); return zwei(x.getHours()) + ":" + zwei(x.getMinutes()); })(Math.max(t.start, tag));
-      var laeuft = !t.ganz && t.start <= jetzt && t.ende > jetzt;
-      html += '<div class="kal-termin' + (laeuft ? " laeuft" : "") + '"><span class="kal-punkt" style="background:' + farbe(t.kal) + '"></span>' +
-        '<span class="kal-zeit">' + zeit + '</span><span class="kal-text">' + esc(t.titel || "(ohne Titel)") + "</span></div>";
-      zeilen++;
-    }
-    if (!html) html = '<div class="kal-leer">Keine Termine in den nächsten Tagen</div>';
-    if (rest) html += '<div class="kal-mehr">+ ' + rest + " weitere" + (fokus ? "" : " · antippen") + "</div>";
-    el.innerHTML = html;
-  }
-  try {
-    var neu = ausHash();
-    if (neu) speichern(neu);
-  } catch (e) {}
-  window.Kalender = { zeichnen: zeichnen };
-  zeichnen();
-  setInterval(zeichnen, 60000);
-})();
-
-</script>
 <script>
 /* Wetter für 82008 Unterhaching über Open-Meteo (kostenlos, ohne Schlüssel, CORS erlaubt). ES5.
    Eigene SVG-Symbole im Stil der Apple-Wetter-App (gefüllt, mehrfarbig). */
@@ -859,84 +761,6 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   window.WetterTest = { symbol: symbol, text: text };
   laden();
   setInterval(laden, 15 * 60 * 1000);
-})();
-
-</script>
-<script>
-/* Balkonkraftwerk (Anker Solarbank 3 + Smart Meter): der Kurzbefehl hängt die Antwort von
-   get_scen_info als &pv=<base64> an den Link. Wir zeigen eine kleine Kachel links neben dem Wetter.
-   Letzter Stand bleibt im iPad gespeichert. ES5, iOS 15. */
-(function () {
-  var SPEICHER = "solar_v1", ALT_MIN = 90;
-  function zahl(x) { var n = parseFloat(x); return isNaN(n) ? null : n; }
-  function zwei(n) { return (n < 10 ? "0" : "") + n; }
-  function watt(n) { if (n == null) return "–"; n = Math.round(n); return Math.abs(n) >= 1000 ? (n / 1000).toFixed(1).replace(".", ",") + " kW" : n + " W"; }
-  function ausHash() {
-    var m = location.hash.match(/[#&]pv=([^&]*)/);
-    if (!m) return null;
-    var roh = decodeURIComponent(m[1]).replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/");
-    var j = JSON.parse(decodeURIComponent(escape(atob(roh))));
-    var d = j && j.data ? j.data : j, sb = d.solarbank_info || {}, gi = d.grid_info || {};
-    var soc = zahl(sb.total_battery_power);
-    if (soc != null && soc <= 1.01) soc = soc * 100;
-    var laden = zahl(sb.total_charging_power), entladen = zahl(sb.battery_discharge_power);
-    return {
-      zeit: Date.now(),
-      pv: zahl(sb.total_photovoltaic_power),
-      soc: soc == null ? null : Math.round(soc),
-      akku: (laden || 0) - (entladen || 0),           // + lädt, - entlädt
-      haus: zahl(d.home_load_power),
-      bezug: zahl(gi.grid_to_home_power),
-      einspeisung: zahl(gi.photovoltaic_to_grid_power),
-      fehler: j && j.code ? (j.msg || "Fehler " + j.code) : null
-    };
-  }
-  function laden() { try { return JSON.parse(localStorage.getItem(SPEICHER)); } catch (e) { return null; } }
-  function speichern(d) { try { localStorage.setItem(SPEICHER, JSON.stringify(d)); } catch (e) {} }
-  var SONNE = '<svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="#ffc933"/><g stroke="#ffc933" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></svg>';
-  function akkuSvg(soc) {
-    var f = soc == null ? 0 : Math.max(0, Math.min(100, soc)), farbe = f < 20 ? "#ff5d6c" : f < 50 ? "#ffc933" : "#30d158";
-    return '<svg width="30" height="16" viewBox="0 0 30 16"><rect x="1" y="1" width="25" height="14" rx="3" fill="none" stroke="#b9c4d6" stroke-width="1.6"/><rect x="27" y="5" width="2.4" height="6" rx="1" fill="#b9c4d6"/><rect x="3" y="3" width="' + (21 * f / 100).toFixed(1) + '" height="10" rx="1.5" fill="' + farbe + '"/></svg>';
-  }
-  function zeichnen() {
-    var el = document.getElementById("solar");
-    if (!el) {
-      var w = document.getElementById("wetter");
-      if (!w || !w.parentNode) return;
-      el = document.createElement("div"); el.id = "solar";
-      w.parentNode.insertBefore(el, w.nextSibling);
-    }
-    var d = laden();
-    if (!d) { el.style.display = "none"; return; }
-    el.style.display = "";
-    var alt = (Date.now() - d.zeit) / 60000 > ALT_MIN, t = new Date(d.zeit);
-    var netz = d.einspeisung > 0 ? '<span class="so-ein">↑ ' + watt(d.einspeisung) + "</span> Netz"
-      : d.bezug != null ? '<span class="so-bez">↓ ' + watt(d.bezug) + "</span> Netz" : "";
-    el.className = alt ? "alt" : "";
-    el.innerHTML = SONNE +
-      '<div><div class="so-gross">' + watt(d.pv) + '<span class="so-akku">' + akkuSvg(d.soc) + (d.soc == null ? "–" : d.soc + " %") + "</span></div>" +
-      '<div class="so-klein">Haus ' + watt(d.haus) + (netz ? " · " + netz : "") + "</div>" +
-      (d.fehler || alt ? '<div class="so-klein so-stand">' + (d.fehler ? "Anker: " + d.fehler : "Stand " + zwei(t.getHours()) + ":" + zwei(t.getMinutes())) + "</div>" : "") + "</div>";
-  }
-  function start() {
-    try { var neu = ausHash(); if (neu) { if (neu.fehler) { var a = laden(); if (a) { a.fehler = neu.fehler; neu = a; } } speichern(neu); } } catch (e) {}
-    zeichnen();
-  }
-  var stil = document.createElement("style");
-  stil.innerHTML = "#solar { float: right; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; background: rgba(255,255,255,.07); border-radius: 16px; padding: 7px 14px 7px 10px; margin: -2px 12px 0 0; line-height: 1.2; color: #fff; }" +
-    "#solar > svg { margin-right: 10px; -webkit-flex-shrink: 0; flex-shrink: 0; }" +
-    "#solar .so-gross { font-size: 24px; font-weight: 600; white-space: nowrap; }" +
-    "#solar .so-akku { font-size: 18px; font-weight: 600; margin-left: 10px; color: #dfe6f2; }" +
-    "#solar .so-akku svg { vertical-align: -2px; margin-right: 5px; }" +
-    "#solar .so-klein { font-size: 14px; color: #b9c4d6; white-space: nowrap; }" +
-    "#solar .so-stand { font-size: 12px; color: #8f9bb0; }" +
-    "#solar .so-ein { color: #30d158; font-weight: 600; } #solar .so-bez { color: #ffc933; font-weight: 600; }" +
-    "#solar.alt { opacity: .55; }" +
-    "body.fokus-abf #solar, body.fokus-vp #solar, body.fokus-wetter #solar, body.fokus-kal #solar { display: none !important; }";
-  document.head.appendChild(stil);
-  start();
-  window.addEventListener("hashchange", start);
-  setInterval(zeichnen, 60000);
 })();
 
 </script>
