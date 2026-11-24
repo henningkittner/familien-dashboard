@@ -773,6 +773,28 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
+<script>
+/* Vollbild: beim Antippen wechselt Safari (iPad ab iPadOS 12) in den Vollbildmodus, ohne Adressleiste.
+   Geht nur durch eine Berührung, nicht automatisch. Fällt der Vollbildmodus weg (z. B. neuer Tab vom Kurzbefehl),
+   holt ihn das nächste Antippen zurück. ?ohnevollbild=1 schaltet das ab. ES5. */
+(function () {
+  if (/[?&]ohnevollbild=1/.test(location.search)) return;
+  var el = document.documentElement;
+  var anfordern = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen;
+  if (!anfordern) return;
+  function istVoll() { return !!(document.fullscreenElement || document.webkitFullscreenElement || document.webkitCurrentFullScreenElement); }
+  function los() {
+    if (istVoll()) return;
+    try { var p = anfordern.call(el); if (p && p["catch"]) p["catch"](function () {}); } catch (e) {}
+  }
+  document.addEventListener("click", los, true);
+  document.addEventListener("touchend", los, true);
+  function neu() { if (window.Einpassen) { window.Einpassen(); setTimeout(window.Einpassen, 400); } }
+  document.addEventListener("fullscreenchange", neu, false);
+  document.addEventListener("webkitfullscreenchange", neu, false);
+})();
+
+</script>
 <div id="ruhe"><div id="ruhe-zeit"></div></div>
 <style>
   #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; }
