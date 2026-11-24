@@ -827,7 +827,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 <div id="ruhe"><div id="aod"><div id="aod-datum"></div><div id="aod-zeit"></div><div id="aod-info"><span id="aod-wetter"></span></div><div id="aod-abf"></div></div></div>
 <style>
   #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; overflow: hidden; }
-  #aod { position: absolute; left: 0; right: 0; top: 11%; text-align: center; color: #8d939c; -webkit-transition: -webkit-transform 3s ease; transition: transform 3s ease; }
+  #aod { position: absolute; left: 0; right: 0; top: 11%; text-align: center; color: #8d939c; opacity: .4; /* wirkt wie 0 % Helligkeit (Mina 24.11.) */ -webkit-transition: -webkit-transform 3s ease; transition: transform 3s ease; }
   #aod-datum { font-size: 26px; font-weight: 500; letter-spacing: .3px; color: #7c828b; }
   #aod-zeit { font-size: 150px; font-weight: 200; line-height: 1; letter-spacing: -2px; color: #9aa0a8; margin: 6px 0 14px; font-variant-numeric: tabular-nums; -webkit-font-feature-settings: "tnum"; }
   #aod-info { font-size: 26px; color: #7c828b; height: 40px; line-height: 40px; }
