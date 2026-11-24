@@ -330,9 +330,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 </script>
 <script>
 /* Skaliert das Dashboard so, dass es genau auf den Bildschirm passt (nie scrollen).
-   Arbeitet mit transform: scale auf einer Hülle. Die Uhr-Ansicht (#ruhe) liegt außerhalb und bleibt unverändert. ES5. */
+   Arbeitet mit transform: scale auf einer Hülle. Vergrößert nur so weit, dass die Seite mindestens MIN_BREITE px breit bleibt. Die Uhr-Ansicht (#ruhe) liegt außerhalb und bleibt unverändert. ES5. */
 (function () {
-  var MIN = 0.55, MAX = 1.3, huelle = null, letzt = 0;
+  var MIN = 0.55, MAX = 1.3, MIN_BREITE = 1000, huelle = null, letzt = 0;
   function huelleBauen() {
     huelle = document.createElement("div");
     huelle.id = "alles";
@@ -351,15 +351,20 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   function einpassen() {
     if (!huelle) huelleBauen();
     var B = window.innerWidth, H = window.innerHeight, z = 1;
+    var vp = document.querySelector(".vp-bereich");
+    if (vp) vp.style.minHeight = "";
     for (var runde = 0; runde < 4; runde++) {
       huelle.style.width = (B / z) + "px";
       var h = huelle.offsetHeight; // Layout-Höhe, unabhängig von der Skalierung
-      var neu = Math.max(MIN, Math.min(MAX, H / h));
+      var neu = Math.max(MIN, Math.min(MAX, B / MIN_BREITE, H / h)); // nie schmaler als MIN_BREITE, sonst werden die Ziele unlesbar
       if (Math.abs(neu - z) < 0.005) { z = neu; break; }
       z = neu;
     }
     huelle.style.width = (B / z) + "px";
     if (huelle.offsetHeight * z > H) z = H / huelle.offsetHeight; // Sicherheit
+    // Bleibt unten Platz (z. B. leerer Vertretungsplan), wird der Vertretungsplan nach unten verlängert
+    var rest = Math.floor(H / z - huelle.offsetHeight);
+    if (vp && vp.offsetHeight && rest > 0) { vp.style.boxSizing = "border-box"; vp.style.minHeight = (vp.offsetHeight + rest) + "px"; }
     var t = "scale(" + z + ")";
     huelle.style.webkitTransform = huelle.style.transform = t;
     document.documentElement.style.height = document.body.style.height = H + "px";
