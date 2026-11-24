@@ -863,6 +863,84 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 
 </script>
 <script>
+/* Balkonkraftwerk (Anker Solarbank 3 + Smart Meter): der Kurzbefehl hängt die Antwort von
+   get_scen_info als &pv=<base64> an den Link. Wir zeigen eine kleine Kachel links neben dem Wetter.
+   Letzter Stand bleibt im iPad gespeichert. ES5, iOS 15. */
+(function () {
+  var SPEICHER = "solar_v1", ALT_MIN = 90;
+  function zahl(x) { var n = parseFloat(x); return isNaN(n) ? null : n; }
+  function zwei(n) { return (n < 10 ? "0" : "") + n; }
+  function watt(n) { if (n == null) return "–"; n = Math.round(n); return Math.abs(n) >= 1000 ? (n / 1000).toFixed(1).replace(".", ",") + " kW" : n + " W"; }
+  function ausHash() {
+    var m = location.hash.match(/[#&]pv=([^&]*)/);
+    if (!m) return null;
+    var roh = decodeURIComponent(m[1]).replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/");
+    var j = JSON.parse(decodeURIComponent(escape(atob(roh))));
+    var d = j && j.data ? j.data : j, sb = d.solarbank_info || {}, gi = d.grid_info || {};
+    var soc = zahl(sb.total_battery_power);
+    if (soc != null && soc <= 1.01) soc = soc * 100;
+    var laden = zahl(sb.total_charging_power), entladen = zahl(sb.battery_discharge_power);
+    return {
+      zeit: Date.now(),
+      pv: zahl(sb.total_photovoltaic_power),
+      soc: soc == null ? null : Math.round(soc),
+      akku: (laden || 0) - (entladen || 0),           // + lädt, - entlädt
+      haus: zahl(d.home_load_power),
+      bezug: zahl(gi.grid_to_home_power),
+      einspeisung: zahl(gi.photovoltaic_to_grid_power),
+      fehler: j && j.code ? (j.msg || "Fehler " + j.code) : null
+    };
+  }
+  function laden() { try { return JSON.parse(localStorage.getItem(SPEICHER)); } catch (e) { return null; } }
+  function speichern(d) { try { localStorage.setItem(SPEICHER, JSON.stringify(d)); } catch (e) {} }
+  var SONNE = '<svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="#ffc933"/><g stroke="#ffc933" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></svg>';
+  function akkuSvg(soc) {
+    var f = soc == null ? 0 : Math.max(0, Math.min(100, soc)), farbe = f < 20 ? "#ff5d6c" : f < 50 ? "#ffc933" : "#30d158";
+    return '<svg width="30" height="16" viewBox="0 0 30 16"><rect x="1" y="1" width="25" height="14" rx="3" fill="none" stroke="#b9c4d6" stroke-width="1.6"/><rect x="27" y="5" width="2.4" height="6" rx="1" fill="#b9c4d6"/><rect x="3" y="3" width="' + (21 * f / 100).toFixed(1) + '" height="10" rx="1.5" fill="' + farbe + '"/></svg>';
+  }
+  function zeichnen() {
+    var el = document.getElementById("solar");
+    if (!el) {
+      var w = document.getElementById("wetter");
+      if (!w || !w.parentNode) return;
+      el = document.createElement("div"); el.id = "solar";
+      w.parentNode.insertBefore(el, w.nextSibling);
+    }
+    var d = laden();
+    if (!d) { el.style.display = "none"; return; }
+    el.style.display = "";
+    var alt = (Date.now() - d.zeit) / 60000 > ALT_MIN, t = new Date(d.zeit);
+    var netz = d.einspeisung > 0 ? '<span class="so-ein">↑ ' + watt(d.einspeisung) + "</span> Netz"
+      : d.bezug != null ? '<span class="so-bez">↓ ' + watt(d.bezug) + "</span> Netz" : "";
+    el.className = alt ? "alt" : "";
+    el.innerHTML = SONNE +
+      '<div><div class="so-gross">' + watt(d.pv) + '<span class="so-akku">' + akkuSvg(d.soc) + (d.soc == null ? "–" : d.soc + " %") + "</span></div>" +
+      '<div class="so-klein">Haus ' + watt(d.haus) + (netz ? " · " + netz : "") + "</div>" +
+      (d.fehler || alt ? '<div class="so-klein so-stand">' + (d.fehler ? "Anker: " + d.fehler : "Stand " + zwei(t.getHours()) + ":" + zwei(t.getMinutes())) + "</div>" : "") + "</div>";
+  }
+  function start() {
+    try { var neu = ausHash(); if (neu) { if (neu.fehler) { var a = laden(); if (a) { a.fehler = neu.fehler; neu = a; } } speichern(neu); } } catch (e) {}
+    zeichnen();
+  }
+  var stil = document.createElement("style");
+  stil.innerHTML = "#solar { float: right; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; background: rgba(255,255,255,.07); border-radius: 16px; padding: 7px 14px 7px 10px; margin: -2px 12px 0 0; line-height: 1.2; color: #fff; }" +
+    "#solar > svg { margin-right: 10px; -webkit-flex-shrink: 0; flex-shrink: 0; }" +
+    "#solar .so-gross { font-size: 24px; font-weight: 600; white-space: nowrap; }" +
+    "#solar .so-akku { font-size: 18px; font-weight: 600; margin-left: 10px; color: #dfe6f2; }" +
+    "#solar .so-akku svg { vertical-align: -2px; margin-right: 5px; }" +
+    "#solar .so-klein { font-size: 14px; color: #b9c4d6; white-space: nowrap; }" +
+    "#solar .so-stand { font-size: 12px; color: #8f9bb0; }" +
+    "#solar .so-ein { color: #30d158; font-weight: 600; } #solar .so-bez { color: #ffc933; font-weight: 600; }" +
+    "#solar.alt { opacity: .55; }" +
+    "body.fokus-abf #solar, body.fokus-vp #solar, body.fokus-wetter #solar, body.fokus-kal #solar { display: none !important; }";
+  document.head.appendChild(stil);
+  start();
+  window.addEventListener("hashchange", start);
+  setInterval(zeichnen, 60000);
+})();
+
+</script>
+<script>
 /*
  * Vertretungsplan-Baustein fürs iPad-Dashboard (ohne Server).
  *

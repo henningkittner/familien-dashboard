@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anker einrichten</title>
+<style>
+  :root { --bg: #11151c; --karte: #1b2433; --text: #fff; --leise: #a8b3c5; --akzent: #ffc933; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.45 -apple-system, system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  p, li { color: var(--leise); }
+  .karte { background: var(--karte); border-radius: 16px; padding: 16px; margin: 16px 0; }
+  label { display: block; font-weight: 600; margin: 10px 0 4px; }
+  input, select, textarea { width: 100%; box-sizing: border-box; font-size: 17px; padding: 10px 12px; border-radius: 10px; border: 1px solid #3a4558; background: #0f1520; color: #fff; }
+  textarea { height: 150px; font: 13px/1.35 ui-monospace, Menlo, monospace; }
+  button { margin-top: 14px; width: 100%; font-size: 18px; font-weight: 600; padding: 12px; border: 0; border-radius: 12px; background: var(--akzent); color: #1b1b1b; }
+  #fehler { color: #ff5d6c; font-weight: 600; }
+  #ergebnis { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Anker-Login für den Kurzbefehl</h1>
+  <p>Diese Seite verschlüsselt euer Anker-Passwort <b>hier im iPad</b> so, wie es die Anker-Cloud verlangt. Nichts wird von dieser Seite verschickt oder gespeichert. Heraus kommt ein Text, den ihr in den Kurzbefehl kopiert.</p>
+  <div class="karte">
+    <label for="mail">E-Mail des Anker-Kontos</label>
+    <input id="mail" type="email" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label for="pw">Passwort</label>
+    <input id="pw" type="password" autocomplete="off">
+    <label for="land">Land des Kontos</label>
+    <select id="land"><option value="DE">Deutschland</option><option value="AT">Österreich</option><option value="CH">Schweiz</option></select>
+    <button id="los">Login-Text erzeugen</button>
+    <p id="fehler"></p>
+  </div>
+  <div class="karte" id="ergebnis">
+    <label for="aus">Login-Text (wie ein Passwort behandeln)</label>
+    <textarea id="aus" readonly></textarea>
+    <button id="kopieren">Kopieren</button>
+    <p>Jetzt im Kurzbefehl „Solar“ die Aktion <b>Text</b> ganz oben antippen und den kopierten Text einfügen. Danach diese Seite schließen.</p>
+  </div>
+</main>
+<script>
+// Öffentlicher Schlüssel des Anker-Servers (P-256, unkomprimiert), wie ihn auch die Anker-App nutzt.
+var ANKER_SERVER = "04c5c00c4f8d1197cc7c3167c52bf7acb054d722f0ef08dcd7e0883236e0d72a3868d9750cb47fa4619248f3d83f0f662671dadc6e2d31c2f41db0161651c7c076";
+function hexZuBytes(h) { var a = new Uint8Array(h.length / 2); for (var i = 0; i < a.length; i++) a[i] = parseInt(h.substr(i * 2, 2), 16); return a; }
+function bytesZuHex(b) { b = new Uint8Array(b); var s = ""; for (var i = 0; i < b.length; i++) s += (b[i] < 16 ? "0" : "") + b[i].toString(16); return s; }
+function bytesZuB64(b) { b = new Uint8Array(b); var s = ""; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }
+// ECDH mit einem frischen Schlüssel dieses Geräts, AES-256-CBC mit dem gemeinsamen Geheimnis (IV = erste 16 Bytes).
+async function verschluesseln(passwort, serverHex) {
+  var c = crypto.subtle;
+  var paar = await c.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+  var server = await c.importKey("raw", hexZuBytes(serverHex), { name: "ECDH", namedCurve: "P-256" }, false, []);
+  var geheim = await c.deriveBits({ name: "ECDH", public: server }, paar.privateKey, 256);
+  var schluessel = await c.importKey("raw", geheim, { name: "AES-CBC" }, false, ["encrypt"]);
+  var daten = await c.encrypt({ name: "AES-CBC", iv: new Uint8Array(geheim).slice(0, 16) }, schluessel, new TextEncoder().encode(passwort));
+  return { publicKey: bytesZuHex(await c.exportKey("raw", paar.publicKey)), password: bytesZuB64(daten) };
+}
+async function loginText(mail, passwort, land, serverHex) {
+  var v = await verschluesseln(passwort, serverHex || ANKER_SERVER);
+  return JSON.stringify({ ab: land, client_secret_info: { public_key: v.publicKey }, enc: 1, email: mail, password: v.password });
+}
+if (typeof document !== "undefined" && document.getElementById("los")) {
+  document.getElementById("los").onclick = function () {
+    var f = document.getElementById("fehler"); f.textContent = "";
+    var mail = document.getElementById("mail").value.trim(), pw = document.getElementById("pw").value;
+    if (!mail || !pw) { f.textContent = "Bitte E-Mail und Passwort eingeben."; return; }
+    if (!window.crypto || !crypto.subtle) { f.textContent = "Dieser Browser kann nicht verschlüsseln. Bitte die Seite in Safari über https öffnen."; return; }
+    loginText(mail, pw, document.getElementById("land").value).then(function (t) {
+      document.getElementById("pw").value = "";
+      document.getElementById("aus").value = t;
+      document.getElementById("ergebnis").style.display = "block";
+    }, function (e) { f.textContent = "Fehler: " + e; });
+  };
+  document.getElementById("kopieren").onclick = function () {
+    var a = document.getElementById("aus"); a.select(); a.setSelectionRange(0, 99999);
+    try { navigator.clipboard.writeText(a.value); } catch (e) { document.execCommand("copy"); }
+    this.textContent = "Kopiert ✓";
+  };
+}
+</script>
+</body>
+</html>
