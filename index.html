@@ -725,7 +725,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var el = document.getElementById("wetter");
     if (!el || !d || !d.current) return;
     var c = d.current.weather_code, tag = d.current.is_day, t = d.daily;
-    window.WetterJetzt = { code: c, tag: !!tag, temp: d.current.temperature_2m }; // für die Uhr-Ansicht
+    window.WetterJetzt = { code: c, tag: !!tag, temp: d.current.temperature_2m, text: text(c, tag), hoch: t.temperature_2m_max[0], tief: t.temperature_2m_min[0] }; // für die Uhr-Ansicht
     var regen = t.precipitation_probability_max ? t.precipitation_probability_max[0] : null;
     el.innerHTML = '<div class="w-symbol">' + symbol(c, tag) + '</div><div class="w-werte"><div class="w-temp">' + r(d.current.temperature_2m) +
       '</div><div class="w-klein">' + text(c, tag) + '</div><div class="w-klein">H: ' + r(t.temperature_2m_max[0]) + " &nbsp;T: " + r(t.temperature_2m_min[0]) +
@@ -825,106 +825,64 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
-<div id="ruhe"><div id="aod-himmel"><div class="hw hw1"><svg viewBox="5 8 52 37"><path fill="#9aa0aa" d="M17 44h29a9.5 9.5 0 0 0 .6-19A13 13 0 0 0 21.5 22 10.5 10.5 0 0 0 17 44z"/></svg></div><div class="hw hw2"><svg viewBox="5 8 52 37"><path fill="#9aa0aa" d="M17 44h29a9.5 9.5 0 0 0 .6-19A13 13 0 0 0 21.5 22 10.5 10.5 0 0 0 17 44z"/></svg></div><div class="hw hw3"><svg viewBox="5 8 52 37"><path fill="#9aa0aa" d="M17 44h29a9.5 9.5 0 0 0 .6-19A13 13 0 0 0 21.5 22 10.5 10.5 0 0 0 17 44z"/></svg></div></div><div id="aod"><div id="aod-datum"></div><div id="aod-zeit"></div><div id="aod-info"><span id="aod-wsym"></span><span id="aod-wtemp"></span></div><div id="aod-abf"></div></div></div>
+<div id="ruhe" class="h-wolken"><div id="aod-himmel"><div class="hs-sonne"></div><div class="hs-sterne"></div><div class="hw hw1"></div><div class="hw hw2"></div><div class="hw hw3"></div><div class="hw hw4"></div><div class="hw hw5"></div><div class="hn hn1"></div><div class="hn hn2"></div><div class="hs-blitz"></div></div><div id="aod"><div id="aod-zeit"></div><div id="aod-datum"></div><div id="aod-ort">Unterhaching</div><div id="aod-wtemp"></div><div id="aod-wtext"></div><div id="aod-whl"></div></div></div>
 <style>
+  /* Uhr-Ansicht im Stil eines Wetter-App-Kopfs: dunkler, wetterabhängiger Himmel, gedimmt */
   #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; overflow: hidden; }
-  #aod-himmel { display: none; position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; opacity: .11; }
-  .hw { position: absolute; left: 0; -webkit-animation: hw-zieh linear infinite; animation: hw-zieh linear infinite; }
-  .hw svg { width: 100%; height: 100%; display: block; }
-  .hw1 { top: 8%; width: 420px; height: 299px; -webkit-animation-duration: 140s; animation-duration: 140s; -webkit-animation-delay: -30s; animation-delay: -30s; }
-  .hw2 { top: 46%; width: 560px; height: 398px; -webkit-animation-duration: 190s; animation-duration: 190s; -webkit-animation-delay: -120s; animation-delay: -120s; }
-  .hw3 { top: 70%; width: 320px; height: 228px; -webkit-animation-duration: 115s; animation-duration: 115s; -webkit-animation-delay: -75s; animation-delay: -75s; }
-  @-webkit-keyframes hw-zieh { from { -webkit-transform: translate3d(-600px,0,0); } to { -webkit-transform: translate3d(1400px,0,0); } }
-  @keyframes hw-zieh { from { transform: translate3d(-600px,0,0); } to { transform: translate3d(1400px,0,0); } }
-  #aod { position: absolute; left: 0; right: 0; top: 11%; text-align: center; color: #8d939c; opacity: .4; /* wirkt wie 0 % Helligkeit (Mina 24.11.) */ -webkit-transition: -webkit-transform 3s ease; transition: transform 3s ease; }
-  #aod-datum { font-size: 26px; font-weight: 500; letter-spacing: .3px; color: #7c828b; }
-  #aod-zeit { font-size: 84px; font-weight: 200; line-height: 1; letter-spacing: -2px; color: #9aa0a8; margin: 6px 0 14px; font-variant-numeric: tabular-nums; -webkit-font-feature-settings: "tnum"; }
-  #aod-info { font-size: 64px; color: #8d939c; margin-top: 10px; }
-  #aod-wsym { display: block; width: 280px; height: 280px; margin: 0 auto; }
-  #aod-wtemp { display: block; font-weight: 200; line-height: 1; margin-top: -6px; }
-  #aod-abf { display: none; margin-top: 22px; font-size: 19px; color: #6c727b; }
-  .aod-abf { display: inline-block; margin: 0 14px; white-space: nowrap; }
-  .aod-lin { display: inline-block; padding: 0 6px; margin-right: 7px; border: 1.5px solid #565c65; border-radius: 5px; font-size: 14px; font-weight: 700; line-height: 20px; color: #8d939c; vertical-align: 1px; }
-  .aod-lin.s { border-radius: 11px; padding: 0 8px; }
-  .aod-ziel { margin-right: 7px; }
-  .aod-min { color: #9aa0a8; font-weight: 600; }
+  #aod-himmel { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; opacity: .5; }
+  #aod-himmel > div { position: absolute; }
+  .hw, .hn, .hs-sonne, .hs-sterne, .hs-blitz { display: none; }
+  .h-klar-tag #aod-himmel { background: -webkit-linear-gradient(top, #1f5fa8, #5d97d2); background: linear-gradient(#1f5fa8, #5d97d2); }
+  .h-klar-nacht #aod-himmel { background: -webkit-linear-gradient(top, #03060d, #101b30); background: linear-gradient(#03060d, #101b30); }
+  .h-wolken-tag #aod-himmel { background: -webkit-linear-gradient(top, #47566a, #76838f); background: linear-gradient(#47566a, #76838f); }
+  .h-wolken-nacht #aod-himmel, .h-nebel-nacht #aod-himmel { background: -webkit-linear-gradient(top, #141a24, #2a323e 65%, #222833); background: linear-gradient(#141a24, #2a323e 65%, #222833); }
+  .h-nebel-tag #aod-himmel { background: -webkit-linear-gradient(top, #5e656d, #868c92); background: linear-gradient(#5e656d, #868c92); }
+  .h-regen-tag #aod-himmel, .h-gewitter-tag #aod-himmel { background: -webkit-linear-gradient(top, #39434f, #59636e); background: linear-gradient(#39434f, #59636e); }
+  .h-regen-nacht #aod-himmel, .h-gewitter-nacht #aod-himmel { background: -webkit-linear-gradient(top, #0e1218, #1f252e); background: linear-gradient(#0e1218, #1f252e); }
+  .h-schnee-tag #aod-himmel { background: -webkit-linear-gradient(top, #6c7784, #9aa4ae); background: linear-gradient(#6c7784, #9aa4ae); }
+  .h-schnee-nacht #aod-himmel { background: -webkit-linear-gradient(top, #181d25, #313843); background: linear-gradient(#181d25, #313843); }
+  /* Sonne (Tag, klar) und Sterne (Nacht, klar) */
+  .h-klar-tag .hs-sonne { display: block; left: -160px; top: -160px; width: 620px; height: 620px; background: -webkit-radial-gradient(center, circle, rgba(255,236,170,.55), rgba(255,236,170,0) 65%); background: radial-gradient(circle, rgba(255,236,170,.55), rgba(255,236,170,0) 65%); }
+  .h-klar-nacht .hs-sterne { display: block; left: 0; top: 0; right: 0; bottom: 0; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='310' height='260'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='22' cy='30' r='1.1'/%3E%3Ccircle cx='140' cy='14' r='.8'/%3E%3Ccircle cx='250' cy='60' r='1.3'/%3E%3Ccircle cx='80' cy='120' r='.7'/%3E%3Ccircle cx='190' cy='150' r='1'/%3E%3Ccircle cx='290' cy='200' r='.8'/%3E%3Ccircle cx='40' cy='220' r='1.2'/%3E%3Ccircle cx='150' cy='240' r='.7'/%3E%3C/g%3E%3C/svg%3E"); -webkit-animation: hs-funkeln 7s ease-in-out infinite alternate; animation: hs-funkeln 7s ease-in-out infinite alternate; }
+  @-webkit-keyframes hs-funkeln { from { opacity: .5; } to { opacity: 1; } }
+  @keyframes hs-funkeln { from { opacity: .5; } to { opacity: 1; } }
+  /* weiche Wolkenschleier ziehen langsam (nur Transform, stromsparend) */
+  .hw { left: 0; border-radius: 50%; background: -webkit-radial-gradient(center, ellipse, rgba(185,195,210,.55), rgba(185,195,210,0) 70%); background: radial-gradient(ellipse, rgba(185,195,210,.55), rgba(185,195,210,0) 70%); -webkit-animation: hw-zieh linear infinite; animation: hw-zieh linear infinite; }
+  .h-wolken-tag .hw, .h-wolken-nacht .hw, .h-regen-tag .hw, .h-regen-nacht .hw, .h-schnee-tag .hw, .h-schnee-nacht .hw, .h-gewitter-tag .hw, .h-gewitter-nacht .hw, .h-nebel-tag .hw, .h-nebel-nacht .hw, .h-teils .hw1, .h-teils .hw3 { display: block; }
+  .hw1 { top: -6%; width: 1100px; height: 380px; -webkit-animation-duration: 170s; animation-duration: 170s; -webkit-animation-delay: -40s; animation-delay: -40s; }
+  .hw2 { top: 14%; width: 900px; height: 300px; -webkit-animation-duration: 230s; animation-duration: 230s; -webkit-animation-delay: -150s; animation-delay: -150s; }
+  .hw3 { top: 30%; width: 1200px; height: 420px; -webkit-animation-duration: 200s; animation-duration: 200s; -webkit-animation-delay: -95s; animation-delay: -95s; }
+  .hw4 { top: 55%; width: 1000px; height: 360px; -webkit-animation-duration: 260s; animation-duration: 260s; -webkit-animation-delay: -20s; animation-delay: -20s; }
+  .hw5 { top: 72%; width: 1300px; height: 400px; -webkit-animation-duration: 190s; animation-duration: 190s; -webkit-animation-delay: -120s; animation-delay: -120s; }
+  @-webkit-keyframes hw-zieh { from { -webkit-transform: translate3d(-1300px,0,0); } to { -webkit-transform: translate3d(1100px,0,0); } }
+  @keyframes hw-zieh { from { transform: translate3d(-1300px,0,0); } to { transform: translate3d(1100px,0,0); } }
+  /* Regen und Schnee: gekachelte Ebene, die nach unten wandert */
+  .hn { left: 0; right: 0; top: -240px; bottom: 0; -webkit-animation: hn-fall linear infinite; animation: hn-fall linear infinite; }
+  .h-regen-tag .hn, .h-regen-nacht .hn, .h-gewitter-tag .hn, .h-gewitter-nacht .hn, .h-schnee-tag .hn, .h-schnee-nacht .hn { display: block; }
+  .h-regen-tag .hn, .h-regen-nacht .hn, .h-gewitter-tag .hn, .h-gewitter-nacht .hn { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cg stroke='%23b8c6d8' stroke-width='1.3' stroke-linecap='round'%3E%3Cpath d='M20 10l-4 22M90 60l-4 22M160 25l-4 22M215 110l-4 22M55 150l-4 22M130 185l-4 22M195 205l-4 22M10 205l-4 22'/%3E%3C/g%3E%3C/svg%3E"); }
+  .hn1 { -webkit-animation-duration: .9s; animation-duration: .9s; }
+  .hn2 { opacity: .55; background-position: 120px 90px; -webkit-animation-duration: 1.3s; animation-duration: 1.3s; }
+  .h-schnee-tag .hn, .h-schnee-nacht .hn { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='20' cy='20' r='2.4'/%3E%3Ccircle cx='110' cy='70' r='1.8'/%3E%3Ccircle cx='190' cy='30' r='2.8'/%3E%3Ccircle cx='60' cy='140' r='2'/%3E%3Ccircle cx='160' cy='170' r='2.5'/%3E%3Ccircle cx='220' cy='120' r='1.6'/%3E%3Ccircle cx='100' cy='215' r='2.2'/%3E%3C/g%3E%3C/svg%3E"); }
+  .h-schnee-tag .hn1, .h-schnee-nacht .hn1 { -webkit-animation-duration: 9s; animation-duration: 9s; }
+  .h-schnee-tag .hn2, .h-schnee-nacht .hn2 { -webkit-animation-duration: 14s; animation-duration: 14s; }
+  @-webkit-keyframes hn-fall { from { -webkit-transform: translate3d(0,0,0); } to { -webkit-transform: translate3d(0,240px,0); } }
+  @keyframes hn-fall { from { transform: translate3d(0,0,0); } to { transform: translate3d(0,240px,0); } }
+  /* Gewitter: seltenes Aufleuchten */
+  .h-gewitter-tag .hs-blitz, .h-gewitter-nacht .hs-blitz { display: block; left: 0; top: 0; right: 0; bottom: 0; background: #dfe6ff; opacity: 0; -webkit-animation: hs-blitz 11s infinite; animation: hs-blitz 11s infinite; }
+  @-webkit-keyframes hs-blitz { 0%, 90%, 92.5%, 100% { opacity: 0; } 91% { opacity: .35; } 92% { opacity: .1; } 93.5% { opacity: .25; } 95% { opacity: 0; } }
+  @keyframes hs-blitz { 0%, 90%, 92.5%, 100% { opacity: 0; } 91% { opacity: .35; } 92% { opacity: .1; } 93.5% { opacity: .25; } 95% { opacity: 0; } }
+  /* Text wie im Kopf einer Wetter-App, zentriert und gedimmt */
+  #aod { position: absolute; left: 0; right: 0; top: 7%; text-align: center; color: #fff; opacity: .5; /* gedimmt wie 0 % Helligkeit (Mina 24.11.) */ -webkit-transition: -webkit-transform 3s ease; transition: transform 3s ease; }
+  #aod-zeit { font-size: 46px; font-weight: 300; line-height: 1; letter-spacing: -.5px; font-variant-numeric: tabular-nums; -webkit-font-feature-settings: "tnum"; }
+  #aod-datum { font-size: 18px; font-weight: 500; margin-top: 6px; opacity: .8; }
+  #aod-ort { font-size: 48px; font-weight: 400; margin-top: 70px; letter-spacing: .2px; }
+  #aod-wtemp { font-size: 190px; font-weight: 100; line-height: 1; margin: 4px 0 6px 40px; letter-spacing: -4px; }
+  #aod-wtext { font-size: 30px; font-weight: 500; }
+  #aod-whl { font-size: 30px; font-weight: 500; margin-top: 4px; }
 </style>
 <script>
-/* Animierte Wettersymbole für die Uhr-Ansicht. SVG mit SMIL-Animation (läuft in Safari ab iOS 9), ruhig und langsam. ES5.
-   WetterAnim(code, tag) liefert ein SVG (viewBox 0 0 64 64) zum aktuellen Open-Meteo-Wettercode. */
-(function () {
-  var GELB = "#FFC933", WOLKE = "#E6E8EE", WOLKE_N = "#B9BFCA", BLAU = "#5AAEF5", MOND = "#F4F1E3";
-  function wolkePfad(f) { return '<path fill="' + f + '" d="M17 44h29a9.5 9.5 0 0 0 .6-19A13 13 0 0 0 21.5 22 10.5 10.5 0 0 0 17 44z"/>'; }
-  function ziehen(inhalt, dx, dy, s, weite, dauer) { // Wolke zieht sanft hin und her
-    return '<g transform="translate(' + dx + "," + dy + ") scale(" + s + ')"><g>' + inhalt +
-      '<animateTransform attributeName="transform" type="translate" values="0 0;' + weite + ' 0;0 0" dur="' + dauer + 's" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"/></g></g>';
-  }
-  function sonne(cx, cy, r) {
-    var strahlen = "";
-    for (var i = 0; i < 8; i++) {
-      var w = i * Math.PI / 4, a = r + 4, b = r + 9;
-      strahlen += '<line x1="' + (cx + a * Math.cos(w)).toFixed(1) + '" y1="' + (cy + a * Math.sin(w)).toFixed(1) + '" x2="' + (cx + b * Math.cos(w)).toFixed(1) +
-        '" y2="' + (cy + b * Math.sin(w)).toFixed(1) + '"/>';
-    }
-    return '<g stroke="' + GELB + '" stroke-width="3.5" stroke-linecap="round">' + strahlen +
-      '<animateTransform attributeName="transform" type="rotate" from="0 ' + cx + " " + cy + '" to="360 ' + cx + " " + cy + '" dur="40s" repeatCount="indefinite"/></g>' +
-      '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + GELB + '"><animate attributeName="opacity" values="1;.8;1" dur="5s" repeatCount="indefinite"/></circle>';
-  }
-  function mond(cx, cy, r) {
-    return '<path fill="' + MOND + '" d="M' + (cx + r * 0.25) + " " + (cy - r) + "A" + r + " " + r + " 0 1 0 " + (cx + r) + " " + (cy + r * 0.35) +
-      "A" + (r * 0.85) + " " + (r * 0.85) + " 0 0 1 " + (cx + r * 0.25) + " " + (cy - r) + 'z"/>';
-  }
-  function stern(x, y, g, start) {
-    return '<path fill="' + MOND + '" d="M' + x + " " + (y - g) + "L" + (x + g * 0.3) + " " + (y - g * 0.3) + "L" + (x + g) + " " + y + "L" + (x + g * 0.3) + " " + (y + g * 0.3) +
-      "L" + x + " " + (y + g) + "L" + (x - g * 0.3) + " " + (y + g * 0.3) + "L" + (x - g) + " " + y + "L" + (x - g * 0.3) + " " + (y - g * 0.3) + 'z">' +
-      '<animate attributeName="opacity" values="1;.2;1" dur="4s" begin="' + start + 's" repeatCount="indefinite"/></path>';
-  }
-  function regen(xs, dauer) {
-    var s = "";
-    for (var i = 0; i < xs.length; i++) {
-      var b = (i * dauer / xs.length).toFixed(2);
-      s += '<line x1="' + xs[i] + '" y1="46" x2="' + (xs[i] - 2) + '" y2="52" stroke="' + BLAU + '" stroke-width="3" stroke-linecap="round" opacity="0">' +
-        '<animateTransform attributeName="transform" type="translate" values="0 0;-3 11" dur="' + dauer + 's" begin="' + b + 's" repeatCount="indefinite"/>' +
-        '<animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.7;1" dur="' + dauer + 's" begin="' + b + 's" repeatCount="indefinite"/></line>';
-    }
-    return s;
-  }
-  function schnee() {
-    var s = "", xs = [20, 30, 40, 26, 36];
-    for (var i = 0; i < xs.length; i++) {
-      var b = (i * 0.9).toFixed(1);
-      s += '<circle cx="' + xs[i] + '" cy="46" r="2.4" fill="#FFFFFF" opacity="0">' +
-        '<animateTransform attributeName="transform" type="translate" values="0 0;2 5;-1 10;1 15" dur="4.5s" begin="' + b + 's" repeatCount="indefinite"/>' +
-        '<animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.75;1" dur="4.5s" begin="' + b + 's" repeatCount="indefinite"/></circle>';
-    }
-    return s;
-  }
-  function blitz() {
-    return '<path fill="' + GELB + '" opacity="0" d="M33 42l-7 11h6l-3 9 10-13h-6l4-7z">' +
-      '<animate attributeName="opacity" values="0;0;1;.2;1;0;0" keyTimes="0;.6;.63;.66;.7;.76;1" dur="7s" repeatCount="indefinite"/></path>';
-  }
-  function nebel(f) {
-    return '<g stroke="' + f + '" stroke-width="3.5" stroke-linecap="round">' +
-      '<line x1="14" y1="49" x2="50" y2="49"><animateTransform attributeName="transform" type="translate" values="0 0;4 0;0 0" dur="9s" repeatCount="indefinite"/></line>' +
-      '<line x1="20" y1="56" x2="44" y2="56"><animateTransform attributeName="transform" type="translate" values="0 0;-4 0;0 0" dur="11s" repeatCount="indefinite"/></line></g>';
-  }
-  function svg(inhalt) { return '<svg viewBox="0 0 64 64" width="100%" height="100%" overflow="visible">' + inhalt + "</svg>"; }
-  window.WetterAnim = function (c, tag) {
-    var w = tag ? WOLKE : WOLKE_N, wolke = wolkePfad(w);
-    if (c === 0) return tag ? svg(sonne(32, 32, 11)) : svg(mond(30, 32, 15) + stern(50, 16, 4, 0) + stern(46, 46, 2.5, 2) + stern(12, 14, 2, 1));
-    if (c === 1 || c === 2) return svg((tag ? sonne(40, 22, 8) : mond(40, 22, 11) + stern(14, 12, 2.5, 1)) + ziehen(wolke, -4, 8, c === 1 ? 0.85 : 1, 5, 14));
-    if (c === 3) return svg(ziehen(wolkePfad(WOLKE_N), 18, 2, 0.7, -4, 17) + ziehen(wolke, -4, 6, 1, 5, 13));
-    if (c === 45 || c === 48) return svg(ziehen(wolke, 0, -4, 1, 3, 15) + nebel(WOLKE_N));
-    if ((c >= 51 && c <= 57) || (c >= 80 && c <= 82 && tag)) return svg((tag ? sonne(42, 18, 7) : "") + regen([26, 38], 1.6) + ziehen(wolke, -2, -2, 1, 3, 12));
-    if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return svg(regen([21, 29, 37, 45], 1.2) + ziehen(wolke, 0, -2, 1, 3, 12));
-    if ((c >= 71 && c <= 77) || c === 85 || c === 86) return svg(schnee() + ziehen(wolke, 0, -2, 1, 3, 14));
-    if (c >= 95) return svg(regen([22, 44], 1.1) + blitz() + ziehen(wolke, 0, -2, 1, 3, 12));
-    return svg(ziehen(wolke, 0, 0, 1, 4, 14));
-  };
-})();
-
-/* Uhr-Ansicht im Always-On-Stil: nach RUHE_SEK Sekunden ohne Berührung schwarzer Bildschirm mit gedimmtem Datum,
-   großer dünner Uhr, Wetter und den nächsten Abfahrten. Antippen zeigt wieder das Dashboard.
+/* Uhr-Ansicht: nach RUHE_SEK Sekunden ohne Berührung gedimmte Ansicht wie der Kopf einer Wetter-App:
+   kleine Uhr mit Datum, Ort, große Temperatur, Wetterbeschreibung, Höchst-/Tiefstwert vor wetterabhängigem Himmel. Antippen zeigt wieder das Dashboard.
    Gegen Einbrennen wandert der Block jede Minute ein wenig. Ecke oben links bleibt frei (Safaris X im Vollbild). ES5.
    Testen: ?nacht=1 zeigt die Uhr-Ansicht sofort, ?ohneruhe=1 schaltet sie ganz ab. */
 (function () {
@@ -937,17 +895,23 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   var letzte = /[?&]nacht=1/.test(location.search) ? 0 : Date.now(), letzteMinute = -1;
   function zwei(n) { return (n < 10 ? "0" : "") + n; }
   function txt(el) { return el ? (el.textContent || "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "") : ""; }
-  var letztesSymbol = "";
-  function wetter() { // Symbol nur neu zeichnen, wenn sich das Wetter ändert (sonst starten die Animationen neu)
-    var wj = window.WetterJetzt, sym = document.getElementById("aod-wsym"), temp = document.getElementById("aod-wtemp");
-    if (!wj || !window.WetterAnim) { sym.innerHTML = ""; temp.innerHTML = ""; return; }
-    var schl = wj.code + "|" + wj.tag;
-    if (schl !== letztesSymbol) {
-      sym.innerHTML = window.WetterAnim(wj.code, wj.tag); letztesSymbol = schl;
-      // Bei Wolken, Nebel, Regen, Schnee, Gewitter ziehen Wolken langsam über den Bildschirm
-      document.getElementById("aod-himmel").style.display = wj.code >= 2 ? "block" : "none";
-    }
-    temp.innerHTML = Math.round(wj.temp) + "°";
+  function himmelArt(c) {
+    if (c <= 1) return "klar";
+    if (c <= 3) return "wolken";
+    if (c === 45 || c === 48) return "nebel";
+    if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "schnee";
+    if (c >= 95) return "gewitter";
+    return "regen";
+  }
+  var letzterHimmel = "";
+  function wetter() { // Himmel nur neu setzen, wenn sich das Wetter ändert (sonst starten die Animationen neu)
+    var wj = window.WetterJetzt;
+    if (!wj) return;
+    var cls = "h-" + himmelArt(wj.code) + "-" + (wj.tag ? "tag" : "nacht") + (wj.code === 1 ? " h-teils" : "");
+    if (cls !== letzterHimmel) { ruhe.className = cls; letzterHimmel = cls; }
+    document.getElementById("aod-wtemp").innerHTML = Math.round(wj.temp) + "°";
+    document.getElementById("aod-wtext").innerHTML = wj.text || "";
+    document.getElementById("aod-whl").innerHTML = wj.hoch != null ? "H: " + Math.round(wj.hoch) + "° &nbsp;T: " + Math.round(wj.tief) + "°" : "";
   }
   function abfahrten() {
     var html = "";
