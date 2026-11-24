@@ -34,6 +34,9 @@ button.ok{background:#30a14e}
 <div class="k"><div class="kopf"><span class="nr">6b</span>Text ersetzen – Durch (Leerzeichen · Leerzeichen)</div>
 <div class="t"><span class=sp>␣</span>·<span class=sp>␣</span></div>
 <button onclick="kopiere(6,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">6c</span>Neues „Text ersetzen“ direkt unter 6 – Suchen (Regulärer Ausdruck an, Durch: leer lassen)</div>
+<div class="t">\s*·?\s*&amp;nbsp;</div>
+<button onclick="kopiere(11,this)">Kopieren</button></div>
 <div class="k"><div class="kopf"><span class="nr">8a</span>Text – vor der Blase KindID</div>
 <div class="t">vp_</div>
 <button onclick="kopiere(7,this)">Kopieren</button></div>
@@ -49,7 +52,7 @@ button.ok{background:#30a14e}
 
 <textarea id="puffer" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px" readonly></textarea>
 <script>
-var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "vp_", ".txt", "(?m)^\\d{1,2}\\. ·", "Vertretungsplan für "];
+var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "vp_", ".txt", "(?m)^\\d{1,2}\\. ·", "Vertretungsplan für ", "\\s*·?\\s*&nbsp;"];
 function fertig(knopf, ok) {
   knopf.innerHTML = ok ? "Kopiert ✓" : "Bitte Text lange drücken";
   knopf.className = ok ? "ok" : "";
