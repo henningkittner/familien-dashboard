@@ -847,15 +847,13 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   @-webkit-keyframes hs-funkeln { from { opacity: .5; } to { opacity: 1; } }
   @keyframes hs-funkeln { from { opacity: .5; } to { opacity: 1; } }
   /* weiche Wolkenschleier ziehen langsam (nur Transform, stromsparend) */
-  .hw { left: 0; border-radius: 50%; background: -webkit-radial-gradient(center, ellipse, rgba(185,195,210,.55), rgba(185,195,210,0) 70%); background: radial-gradient(ellipse, rgba(185,195,210,.55), rgba(185,195,210,0) 70%); -webkit-animation: hw-zieh linear infinite; animation: hw-zieh linear infinite; }
+  .hw { left: 0; border-radius: 50%; background: -webkit-radial-gradient(center, ellipse, rgba(185,195,210,.55), rgba(185,195,210,0) 70%); background: radial-gradient(ellipse, rgba(185,195,210,.55), rgba(185,195,210,0) 70%); will-change: transform; } /* Bewegung per ruhe.js (jede Sekunde, weicher Übergang), läuft so sicher auch auf iOS 15 */
   .h-wolken-tag .hw, .h-wolken-nacht .hw, .h-regen-tag .hw, .h-regen-nacht .hw, .h-schnee-tag .hw, .h-schnee-nacht .hw, .h-gewitter-tag .hw, .h-gewitter-nacht .hw, .h-nebel-tag .hw, .h-nebel-nacht .hw, .h-teils .hw1, .h-teils .hw3 { display: block; }
-  .hw1 { top: -6%; width: 1100px; height: 380px; -webkit-animation-duration: 170s; animation-duration: 170s; -webkit-animation-delay: -40s; animation-delay: -40s; }
-  .hw2 { top: 14%; width: 900px; height: 300px; -webkit-animation-duration: 230s; animation-duration: 230s; -webkit-animation-delay: -150s; animation-delay: -150s; }
-  .hw3 { top: 30%; width: 1200px; height: 420px; -webkit-animation-duration: 200s; animation-duration: 200s; -webkit-animation-delay: -95s; animation-delay: -95s; }
-  .hw4 { top: 55%; width: 1000px; height: 360px; -webkit-animation-duration: 260s; animation-duration: 260s; -webkit-animation-delay: -20s; animation-delay: -20s; }
-  .hw5 { top: 72%; width: 1300px; height: 400px; -webkit-animation-duration: 190s; animation-duration: 190s; -webkit-animation-delay: -120s; animation-delay: -120s; }
-  @-webkit-keyframes hw-zieh { from { -webkit-transform: translate3d(-1300px,0,0); } to { -webkit-transform: translate3d(1100px,0,0); } }
-  @keyframes hw-zieh { from { transform: translate3d(-1300px,0,0); } to { transform: translate3d(1100px,0,0); } }
+  .hw1 { top: -6%; width: 1100px; height: 380px; }
+  .hw2 { top: 14%; width: 900px; height: 300px; }
+  .hw3 { top: 30%; width: 1200px; height: 420px; }
+  .hw4 { top: 55%; width: 1000px; height: 360px; }
+  .hw5 { top: 72%; width: 1300px; height: 400px; }
   /* Regen und Schnee: gekachelte Ebene, die nach unten wandert */
   .hn { left: 0; right: 0; top: -240px; bottom: 0; -webkit-animation: hn-fall linear infinite; animation: hn-fall linear infinite; }
   .h-regen-tag .hn, .h-regen-nacht .hn, .h-gewitter-tag .hn, .h-gewitter-nacht .hn, .h-schnee-tag .hn, .h-schnee-nacht .hn { display: block; }
@@ -944,10 +942,28 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (soll && !ist) {
       if (window.Fokus && /fokus-/.test(document.body.className)) window.Fokus(null);
       ruhe.style.display = "block"; window.scrollTo(0, 0);
+      wolkenLaufen(true);
     } else if (!soll && ist) {
-      ruhe.style.display = "none";
+      ruhe.style.display = "none"; wolkenLaufen(false);
       if (window.Einpassen) window.Einpassen();
     }
+  }
+  // Wolken: jede Sekunde ein Stück weiter, mit 1 s linearem Übergang (flüssig, wenig Strom, ohne Keyframes)
+  var WOLKEN = [[34, 300], [24, 1500], [29, 900], [20, 200], [38, 1900]], SPANNE = 2600, wolkenTimer = null, wolkenEls = null;
+  function wolkenSchritt(sofort) {
+    if (!wolkenEls) wolkenEls = ruhe.querySelectorAll(".hw");
+    var t = Date.now() / 1000;
+    for (var i = 0; i < wolkenEls.length && i < WOLKEN.length; i++) {
+      var x = (t * WOLKEN[i][0] + WOLKEN[i][1]) % SPANNE - 1350, el = wolkenEls[i];
+      var neu = sofort || el._x == null || x < el._x; // beim Neustart links ohne Übergang springen
+      el.style.webkitTransition = el.style.transition = neu ? "none" : "-webkit-transform 1s linear, transform 1s linear";
+      el.style.webkitTransform = el.style.transform = "translate3d(" + Math.round(x) + "px,0,0)";
+      el._x = x;
+    }
+  }
+  function wolkenLaufen(an) {
+    if (an && !wolkenTimer) { wolkenSchritt(true); wolkenTimer = setInterval(function () { wolkenSchritt(false); }, 1000); }
+    if (!an && wolkenTimer) { clearInterval(wolkenTimer); wolkenTimer = null; }
   }
   function beruehrt() { letzte = Date.now(); pruefe(); }
   ruhe.addEventListener("click", function (e) { e.preventDefault(); beruehrt(); });
