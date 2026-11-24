@@ -451,6 +451,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 <style>
   #fokus-zurueck { display: none; float: right; margin: 8px 0 0 18px; padding: 6px 14px; border-radius: 18px; background: rgba(255,255,255,.14); color: #fff; font-size: 17px; font-weight: 600; cursor: pointer; }
   body.fokus-abf #fokus-zurueck, body.fokus-vp #fokus-zurueck { display: block; }
+  #fokus-zurueck { display: none !important; } /* Mina 24.11.: kein Zurück-Knopf, Antippen führt zurück */
   body.fokus-abf .vp-bereich, body.fokus-abf .fuss { display: none !important; }
   body.fokus-vp .abf-titel, body.fokus-vp #raster, body.fokus-vp .fuss { display: none !important; }
   body.fokus-abf .karte { width: -webkit-calc(50% - 8px) !important; width: calc(50% - 8px) !important; }
