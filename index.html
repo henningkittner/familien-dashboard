@@ -932,7 +932,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     // Abfahrten in der Uhr-Ansicht auf Minas Wunsch weggelassen (abfahrten() bleibt für später)
     if (d.getMinutes() !== letzteMinute) { // langsam wandern
       letzteMinute = d.getMinutes();
-      var x = Math.round(Math.sin(letzteMinute / 60 * 2 * Math.PI) * 40), y = Math.round(Math.cos(letzteMinute / 30 * 2 * Math.PI) * 18);
+      var x = 0, y = Math.round(Math.cos(letzteMinute / 30 * 2 * Math.PI) * 12); // nur senkrecht, damit alles exakt mittig bleibt (Mina 24.11.)
       block.style.webkitTransform = block.style.transform = "translate(" + x + "px," + y + "px)";
     }
   }
