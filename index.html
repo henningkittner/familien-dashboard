@@ -526,6 +526,18 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .wd-balken div { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, #4fb3ff, #9be15d, #ffc933); }
   .wd-quelle { font-size: 12px; color: #5d6a7e; padding: 0 4px; }
 </style>
+<style>
+  #stoerungen { clear: both; margin: 4px 4px 0; border-radius: 8px; padding: 0 10px; background: rgba(255,255,255,.07); }
+  #stoerungen.stoerung { background: #4a1d1d; }
+  #stoerungen .st-zeile { height: 34px; line-height: 34px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px; color: #fff; }
+  #stoerungen.ok .st-zeile { color: #8fd694; font-weight: 600; }
+  #stoerungen.offen .st-zeile { height: auto; white-space: normal; line-height: 1.35; padding: 6px 0; border-top: 1px solid rgba(255,255,255,.1); }
+  #stoerungen.offen .st-zeile:first-child { border-top: 0; }
+  #stoerungen .st-warn { color: #ffc933; font-weight: 700; margin-right: 8px; }
+  #stoerungen .linie { display: inline-block !important; float: none !important; min-width: 0; padding: 0 7px; margin: 0 6px 0 0; font-size: 14px; line-height: 21px; border-radius: 5px; background: #fff; color: #0d3082; font-weight: 700; vertical-align: 1px; }
+  #stoerungen .st-text { font-weight: 500; }
+  #stoerungen .st-zahl { float: right; color: #c9a0a0; font-size: 13px; margin-left: 10px; }
+</style>
 <script>
 /* Fokus-Ansicht: Antippen der Abfahrten bzw. des Vertretungsplans zeigt nur diesen Bereich groß.
    Nochmal irgendwo antippen (oder "Übersicht") führt zurück. Beim Wechsel zur Uhr wieder Übersicht. ES5. */
@@ -540,6 +552,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var z = art === "abf" ? ZEILEN_FOKUS : ZEILEN_NORMAL;
     if (CONFIG.maxZeilen !== z) { CONFIG.maxZeilen = z; aktualisiere(); }
     window.scrollTo(0, 0);
+    if (window.Stoerungen) window.Stoerungen.zeichnen();
     if (window.Einpassen) { window.Einpassen(); setTimeout(window.Einpassen, 400); }
   }
   function aktuell() { var m = /fokus-(\w+)/.exec(body.className); return m ? m[1] : null; }
@@ -553,6 +566,82 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     else if (drin(t, function (el) { return /\bvp-bereich\b/.test(el.className || ""); })) setze("vp");
   }, false);
   window.Fokus = setze;
+})();
+
+</script>
+<script>
+/* Störungsmeldungen unter den Abfahrten. Quelle: dieselben MVV-Abfahrtsdaten (jede Abfahrt trägt "infos").
+   Es werden nur Meldungen zu den Linien/Richtungen der Karten gezeigt. Eine feste Zeile, bei mehreren wechselnd. ES5. */
+(function () {
+  var proStation = {}, meldungen = [], nr = 0, timer = null, WECHSEL_SEK = 8;
+  var leiste = document.createElement("div");
+  leiste.id = "stoerungen";
+  document.getElementById("raster").appendChild(leiste);
+  function text(html) { var d = document.createElement("div"); d.innerHTML = html || ""; return (d.textContent || d.innerText || "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, ""); }
+  function wichtig(inf) {
+    if (inf.priority === "veryHigh" || inf.priority === "high") return true;
+    var t = inf.timestamps && isoMs(inf.timestamps.creation);
+    return !!t && t > Date.now() - 2 * 86400000; // normale Meldungen nur, wenn ganz neu
+  }
+  var altVon = vonMvv;
+  vonMvv = function (d) {
+    try {
+      var st = d.locations && d.locations[0] && d.locations[0].id, ev = d.stopEvents || [], liste = [];
+      for (var i = 0; i < ev.length; i++) {
+        var e = ev[i], t = e.transportation || {}, p = (e.location && e.location.properties) || {};
+        if (e.infos && e.infos.length) liste.push({ linie: String(t.number || ""), steig: p.platform ? String(p.platform) : "",
+          ziel: (t.destination && t.destination.name) || "", sbahn: !!(t.product && t.product.class === 1), infos: e.infos });
+      }
+      if (st) { proStation[st] = liste; sammeln(); }
+    } catch (x) {}
+    return altVon(d);
+  };
+  function sammeln() {
+    var gesehen = {}, neu = [];
+    for (var i = 0; i < CONFIG.karten.length; i++) {
+      var k = CONFIG.karten[i], liste = proStation[k.station] || [];
+      for (var j = 0; j < liste.length; j++) {
+        var a = liste[j];
+        if (k.linien.indexOf(a.linie) < 0) continue;
+        if (k.steig && a.steig && a.steig !== k.steig) continue;
+        if (k.ziel && !k.ziel.test(a.ziel)) continue;
+        for (var m = 0; m < a.infos.length; m++) {
+          var inf = a.infos[m], l = (inf.infoLinks && inf.infoLinks[0]) || {};
+          if (!wichtig(inf)) continue;
+          var titel = text(l.subtitle || l.title), inhalt = text(l.content);
+          if (titel.length < 25 && inhalt) titel = (titel ? titel.replace(/\.$/, "") + ": " : "") + inhalt;
+          if (!titel) continue;
+          var schl = inf.id || titel;
+          if (gesehen[schl]) { if (gesehen[schl].linien.indexOf(a.linie) < 0) gesehen[schl].linien.push(a.linie); continue; }
+          gesehen[schl] = { linien: [a.linie], sbahn: a.sbahn, text: titel, hoch: inf.priority === "veryHigh" };
+          neu.push(gesehen[schl]);
+        }
+      }
+    }
+    neu.sort(function (x, y) { return (y.hoch ? 1 : 0) - (x.hoch ? 1 : 0); });
+    meldungen = neu;
+    zeichnen();
+  }
+  function schild(m) {
+    var s = "";
+    for (var i = 0; i < m.linien.length; i++) s += '<span class="linie ' + (m.sbahn ? "sbahn" : "bus") + '">' + esc(m.linien[i]) + "</span>";
+    return s;
+  }
+  function zeichnen() {
+    if (!meldungen.length) { leiste.className = "ok"; leiste.innerHTML = '<div class="st-zeile">&#10003; Keine Störungen gemeldet</div>'; return; }
+    var fokus = /fokus-abf/.test(document.body.className), html = "";
+    if (nr >= meldungen.length) nr = 0;
+    for (var i = 0; i < meldungen.length; i++) {
+      if (!fokus && i !== nr) continue;
+      html += '<div class="st-zeile">' + (!fokus && meldungen.length > 1 ? '<span class="st-zahl">' + (i + 1) + "/" + meldungen.length + "</span>" : "") +
+        '<span class="st-warn">&#9888;</span>' + schild(meldungen[i]) + '<span class="st-text">' + esc(meldungen[i].text) + "</span></div>";
+    }
+    leiste.className = fokus ? "stoerung offen" : "stoerung";
+    leiste.innerHTML = html;
+  }
+  window.Stoerungen = { zeichnen: zeichnen, test: function (m) { meldungen = m; zeichnen(); } };
+  setInterval(function () { if (meldungen.length > 1 && !/fokus-abf/.test(document.body.className)) { nr++; zeichnen(); } }, WECHSEL_SEK * 1000);
+  zeichnen();
 })();
 
 </script>
