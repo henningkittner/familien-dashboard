@@ -440,42 +440,6 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 <style>
   .hinweis { padding: 3px 0 !important; line-height: 29px; min-height: 46px; box-sizing: border-box; border-top: 1px solid #2a3444; }
 </style>
-<div id="ruhe"><div id="ruhe-mitte"><div id="ruhe-zeit"></div><div id="ruhe-datum"></div></div></div>
-<style>
-  #ruhe { position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; }
-  #ruhe-mitte { position: absolute; left: 0; right: 0; top: 50%; margin-top: -125px; text-align: center; }
-  #ruhe-zeit { font-size: 170px; font-weight: 600; color: #8a8f98; line-height: 180px; letter-spacing: -3px; font-variant-numeric: tabular-nums; }
-  #ruhe-datum { font-size: 26px; color: #565b63; margin-top: 30px; }
-</style>
-<script>
-/* Ruhe-Ansicht: schwarzer Bildschirm mit großer Uhr. Antippen zeigt das Dashboard für 5 Minuten. ES5. */
-(function () {
-  var ANZEIGE_SEK = 300;
-  var WT = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
-  var MO = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
-  var ruhe = document.getElementById("ruhe"), timer = null;
-  function zwei(n) { return (n < 10 ? "0" : "") + n; }
-  function uhr() {
-    var d = new Date();
-    document.getElementById("ruhe-zeit").innerHTML = d.getHours() + ":" + zwei(d.getMinutes());
-    document.getElementById("ruhe-datum").innerHTML = WT[d.getDay()] + ", " + d.getDate() + ". " + MO[d.getMonth()];
-  }
-  function zeigeRuhe() { if (window.Fokus && /fokus-/.test(document.body.className)) window.Fokus(null); ruhe.style.display = "block"; window.scrollTo(0, 0); }
-  function zeigeDashboard() {
-    var warVersteckt = ruhe.style.display === "none";
-    ruhe.style.display = "none";
-    if (!warVersteckt && window.Einpassen) window.Einpassen();
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(zeigeRuhe, ANZEIGE_SEK * 1000);
-  }
-  ruhe.addEventListener("click", function (e) { e.preventDefault(); zeigeDashboard(); });
-  // Jede Berührung auf dem Dashboard verlängert die Anzeigezeit
-  document.addEventListener("touchstart", function () { if (ruhe.style.display === "none") zeigeDashboard(); }, false);
-  if (/[?&]ohneruhe=1/.test(location.search)) ruhe.style.display = "none";
-  uhr(); setInterval(uhr, 5000);
-})();
-
-</script>
 <style>
   #fokus-zurueck { display: none; float: left; margin: 8px 14px 0 0; padding: 6px 14px; border-radius: 18px; background: rgba(255,255,255,.14); color: #fff; font-size: 17px; font-weight: 600; cursor: pointer; }
   body.fokus-abf #fokus-zurueck, body.fokus-vp #fokus-zurueck { display: block; }
@@ -565,6 +529,11 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (drin(t, function (el) { return el.id === "raster" || /\babf-titel\b/.test(el.className || ""); })) setze("abf");
     else if (drin(t, function (el) { return /\bvp-bereich\b/.test(el.className || ""); })) setze("vp");
   }, false);
+  // Nach 2 Minuten ohne Berührung zurück zur Übersicht
+  var letzte = Date.now();
+  document.addEventListener("touchstart", function () { letzte = Date.now(); }, false);
+  document.addEventListener("click", function () { letzte = Date.now(); }, true);
+  setInterval(function () { if (aktuell() && Date.now() - letzte > 120000) setze(null); }, 5000);
   window.Fokus = setze;
 })();
 
