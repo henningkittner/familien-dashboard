@@ -134,10 +134,10 @@ var CONFIG = {
   karten: [
     // Busse: Haltestelle Unterhaching, Goerdelerstraße.
     // Steig 2 = Richtung Bahnhof Unterhaching (217 nach "Unterhaching (S)", 220 über Bahnhof nach Winning/Brunnthal).
-    { titel: "Bus 217", unter: "ab Goerdelerstraße → Bahnhof Unterhaching", quelle: "mvv",
-      station: "de:09184:2374", linien: ["217"], steig: "2" },
-    { titel: "Bus 220", unter: "ab Goerdelerstraße → Bahnhof Unterhaching", quelle: "mvv",
-      station: "de:09184:2374", linien: ["220"], steig: "2" },
+    { titel: "Bus 220 → Giesing", unter: "ab Goerdelerstraße, Steig 1", quelle: "mvv",
+      station: "de:09184:2374", linien: ["220"], steig: "1" },
+    { titel: "Bus → Bhf. Unterhaching", unter: "ab Goerdelerstraße · 217 und 220V", quelle: "mvv",
+      station: "de:09184:2374", linien: ["217", "220V"], ziel: /Unterhaching \(S\)/ },
     // S3: S-Bahnhof Unterhaching, Gleis 2 = Holzkirchen, Gleis 1 = Mammendorf.
     { titel: "S3 → Holzkirchen", unter: "ab Unterhaching, Gleis 2", quelle: "mvv",
       station: "de:09184:2310", linien: ["S3"], steig: "2" },
@@ -200,6 +200,7 @@ function filtere(k, abfahrten) {
     var a = abfahrten[i];
     if (k.linien.indexOf(a.linie) < 0) continue;
     if (k.steig && a.steig && a.steig !== k.steig) continue;
+    if (k.ziel && !k.ziel.test(a.ziel)) continue;
     if ((a.echt || a.plan) < jetzt - 30000) continue;
     raus.push(a);
   }
@@ -216,7 +217,7 @@ function zeileHtml(a) {
   return '<div class="zeile' + (a.ausfall ? " ausfall" : "") + '">' +
     '<span class="' + (a.sbahn ? "linie sbahn s3" : "linie bus") + '">' + esc(a.linie) + "</span>" +
     '<span class="zeit"><span class="min' + (verspaetung > 2 ? " spaet" : "") + '">' + minText + '</span><span class="uhrzeit">' + zusatz + "</span></span>" +
-    '<div class="ziel">' + esc(a.ziel) + "</div></div>";
+    '<div class="ziel">' + esc(a.ziel.replace(/^München, /, '')) + "</div></div>";
 }
 
 function zeichneKarte(i, inhalt) {
@@ -482,6 +483,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   body.fokus-vp .abf-titel, body.fokus-vp #raster, body.fokus-vp .fuss { display: none !important; }
   body.fokus-abf .karte { width: -webkit-calc(50% - 8px) !important; width: calc(50% - 8px) !important; }
   .abf-titel, #raster, .vp-bereich { cursor: pointer; }
+  #karte1 .linie { display: inline-block !important; float: left; min-width: 0; padding: 0 7px; margin: 2px 8px 0 0; font-size: 15px; line-height: 22px; border-radius: 5px; background: #fff; color: #0d3082; font-weight: 700; }
   body.fokus-abf #wetter, body.fokus-vp #wetter, body.fokus-abf .stand, body.fokus-vp .stand, body.fokus-abf #kopf-datum, body.fokus-vp #kopf-datum { display: none !important; }
 </style>
 <style>
