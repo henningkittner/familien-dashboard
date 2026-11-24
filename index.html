@@ -343,7 +343,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     }
     b.insertBefore(huelle, b.firstChild);
     huelle.style.webkitTransformOrigin = huelle.style.transformOrigin = "0 0";
-    document.documentElement.style.overflow = b.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden"; b.style.overflow = "visible";
     b.style.margin = "0";
   }
   function einpassen() {
@@ -360,7 +360,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (huelle.offsetHeight * z > H) z = H / huelle.offsetHeight; // Sicherheit
     var t = "scale(" + z + ")";
     huelle.style.webkitTransform = huelle.style.transform = t;
-    document.body.style.height = H + "px";
+    document.documentElement.style.height = document.body.style.height = H + "px";
     letzt = z;
   }
   window.addEventListener("resize", einpassen);
@@ -458,7 +458,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     document.getElementById("ruhe-zeit").innerHTML = d.getHours() + ":" + zwei(d.getMinutes());
     document.getElementById("ruhe-datum").innerHTML = WT[d.getDay()] + ", " + d.getDate() + ". " + MO[d.getMonth()];
   }
-  function zeigeRuhe() { ruhe.style.display = "block"; window.scrollTo(0, 0); }
+  function zeigeRuhe() { if (window.Fokus && /fokus-/.test(document.body.className)) window.Fokus(null); ruhe.style.display = "block"; window.scrollTo(0, 0); }
   function zeigeDashboard() {
     var warVersteckt = ruhe.style.display === "none";
     ruhe.style.display = "none";
@@ -471,6 +471,44 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   document.addEventListener("touchstart", function () { if (ruhe.style.display === "none") zeigeDashboard(); }, false);
   if (/[?&]ohneruhe=1/.test(location.search)) ruhe.style.display = "none";
   uhr(); setInterval(uhr, 5000);
+})();
+
+</script>
+<style>
+  #fokus-zurueck { display: none; float: left; margin: 8px 14px 0 0; padding: 6px 14px; border-radius: 18px; background: rgba(255,255,255,.14); color: #fff; font-size: 17px; font-weight: 600; cursor: pointer; }
+  body.fokus-abf #fokus-zurueck, body.fokus-vp #fokus-zurueck { display: block; }
+  body.fokus-abf .vp-bereich, body.fokus-abf .fuss { display: none !important; }
+  body.fokus-vp .abf-titel, body.fokus-vp #raster, body.fokus-vp .fuss { display: none !important; }
+  body.fokus-abf .karte { width: -webkit-calc(50% - 8px) !important; width: calc(50% - 8px) !important; }
+  .abf-titel, #raster, .vp-bereich { cursor: pointer; }
+  body.fokus-abf #wetter, body.fokus-vp #wetter, body.fokus-abf .stand, body.fokus-vp .stand, body.fokus-abf #kopf-datum, body.fokus-vp #kopf-datum { display: none !important; }
+</style>
+<script>
+/* Fokus-Ansicht: Antippen der Abfahrten bzw. des Vertretungsplans zeigt nur diesen Bereich groß.
+   Nochmal irgendwo antippen (oder "Übersicht") führt zurück. Beim Wechsel zur Uhr wieder Übersicht. ES5. */
+(function () {
+  var body = document.body, ZEILEN_NORMAL = CONFIG.maxZeilen, ZEILEN_FOKUS = 3;
+  var knopf = document.createElement("div");
+  knopf.id = "fokus-zurueck"; knopf.innerHTML = "&#8249; Übersicht";
+  var kopf = document.querySelector(".kopf");
+  kopf.insertBefore(knopf, kopf.firstChild);
+  function setze(art) {
+    body.className = body.className.replace(/\s*fokus-\w+/g, "") + (art ? " fokus-" + art : "");
+    var z = art === "abf" ? ZEILEN_FOKUS : ZEILEN_NORMAL;
+    if (CONFIG.maxZeilen !== z) { CONFIG.maxZeilen = z; aktualisiere(); }
+    window.scrollTo(0, 0);
+    if (window.Einpassen) { window.Einpassen(); setTimeout(window.Einpassen, 400); }
+  }
+  function aktuell() { var m = /fokus-(\w+)/.exec(body.className); return m ? m[1] : null; }
+  function drin(el, test) { while (el && el !== body) { if (test(el)) return true; el = el.parentNode; } return false; }
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (drin(t, function (el) { return el.id === "ruhe"; })) return;
+    if (aktuell()) { setze(null); return; }
+    if (drin(t, function (el) { return el.id === "raster" || /\babf-titel\b/.test(el.className || ""); })) setze("abf");
+    else if (drin(t, function (el) { return /\bvp-bereich\b/.test(el.className || ""); })) setze("vp");
+  }, false);
+  window.Fokus = setze;
 })();
 
 </script>
