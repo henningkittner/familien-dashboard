@@ -825,9 +825,17 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
-<div id="ruhe"><div id="aod"><div id="aod-datum"></div><div id="aod-zeit"></div><div id="aod-info"><span id="aod-wsym"></span><span id="aod-wtemp"></span></div><div id="aod-abf"></div></div></div>
+<div id="ruhe"><div id="aod-himmel"><div class="hw hw1"><svg viewBox="5 8 52 37"><path fill="#9aa0aa" d="M17 44h29a9.5 9.5 0 0 0 .6-19A13 13 0 0 0 21.5 22 10.5 10.5 0 0 0 17 44z"/></svg></div><div class="hw hw2"><svg viewBox="5 8 52 37"><path fill="#9aa0aa" d="M17 44h29a9.5 9.5 0 0 0 .6-19A13 13 0 0 0 21.5 22 10.5 10.5 0 0 0 17 44z"/></svg></div><div class="hw hw3"><svg viewBox="5 8 52 37"><path fill="#9aa0aa" d="M17 44h29a9.5 9.5 0 0 0 .6-19A13 13 0 0 0 21.5 22 10.5 10.5 0 0 0 17 44z"/></svg></div></div><div id="aod"><div id="aod-datum"></div><div id="aod-zeit"></div><div id="aod-info"><span id="aod-wsym"></span><span id="aod-wtemp"></span></div><div id="aod-abf"></div></div></div>
 <style>
   #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; overflow: hidden; }
+  #aod-himmel { display: none; position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; opacity: .11; }
+  .hw { position: absolute; left: 0; -webkit-animation: hw-zieh linear infinite; animation: hw-zieh linear infinite; }
+  .hw svg { width: 100%; height: 100%; display: block; }
+  .hw1 { top: 8%; width: 420px; height: 299px; -webkit-animation-duration: 140s; animation-duration: 140s; -webkit-animation-delay: -30s; animation-delay: -30s; }
+  .hw2 { top: 46%; width: 560px; height: 398px; -webkit-animation-duration: 190s; animation-duration: 190s; -webkit-animation-delay: -120s; animation-delay: -120s; }
+  .hw3 { top: 70%; width: 320px; height: 228px; -webkit-animation-duration: 115s; animation-duration: 115s; -webkit-animation-delay: -75s; animation-delay: -75s; }
+  @-webkit-keyframes hw-zieh { from { -webkit-transform: translate3d(-600px,0,0); } to { -webkit-transform: translate3d(1400px,0,0); } }
+  @keyframes hw-zieh { from { transform: translate3d(-600px,0,0); } to { transform: translate3d(1400px,0,0); } }
   #aod { position: absolute; left: 0; right: 0; top: 11%; text-align: center; color: #8d939c; opacity: .4; /* wirkt wie 0 % Helligkeit (Mina 24.11.) */ -webkit-transition: -webkit-transform 3s ease; transition: transform 3s ease; }
   #aod-datum { font-size: 26px; font-weight: 500; letter-spacing: .3px; color: #7c828b; }
   #aod-zeit { font-size: 84px; font-weight: 200; line-height: 1; letter-spacing: -2px; color: #9aa0a8; margin: 6px 0 14px; font-variant-numeric: tabular-nums; -webkit-font-feature-settings: "tnum"; }
@@ -934,7 +942,11 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var wj = window.WetterJetzt, sym = document.getElementById("aod-wsym"), temp = document.getElementById("aod-wtemp");
     if (!wj || !window.WetterAnim) { sym.innerHTML = ""; temp.innerHTML = ""; return; }
     var schl = wj.code + "|" + wj.tag;
-    if (schl !== letztesSymbol) { sym.innerHTML = window.WetterAnim(wj.code, wj.tag); letztesSymbol = schl; }
+    if (schl !== letztesSymbol) {
+      sym.innerHTML = window.WetterAnim(wj.code, wj.tag); letztesSymbol = schl;
+      // Bei Wolken, Nebel, Regen, Schnee, Gewitter ziehen Wolken langsam über den Bildschirm
+      document.getElementById("aod-himmel").style.display = wj.code >= 2 ? "block" : "none";
+    }
     temp.innerHTML = Math.round(wj.temp) + "°";
   }
   function abfahrten() {
