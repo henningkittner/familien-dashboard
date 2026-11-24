@@ -764,6 +764,43 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
+<div id="ruhe"><div id="ruhe-zeit"></div></div>
+<style>
+  #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; }
+  #ruhe-zeit { position: absolute; top: 14px; right: 20px; font-size: 22px; font-weight: 500; color: #5a5f67; font-variant-numeric: tabular-nums; }
+</style>
+<script>
+/* Nachtmodus: von NACHT_VON bis NACHT_BIS Uhr schwarzer Bildschirm mit kleiner Uhr oben rechts.
+   Antippen zeigt das Dashboard für ANZEIGE_SEK Sekunden. Tagsüber immer Dashboard. ES5.
+   Testen: ?nacht=1 erzwingt den Nachtmodus, ?ohneruhe=1 schaltet ihn ganz ab. */
+(function () {
+  var NACHT_VON = 22, NACHT_BIS = 6, ANZEIGE_SEK = 120;
+  var ruhe = document.getElementById("ruhe"), bisZeit = 0;
+  var aus = /[?&]ohneruhe=1/.test(location.search), immer = /[?&]nacht=1/.test(location.search);
+  function zwei(n) { return (n < 10 ? "0" : "") + n; }
+  function istNacht(d) { var h = d.getHours(); return immer || (NACHT_VON > NACHT_BIS ? (h >= NACHT_VON || h < NACHT_BIS) : (h >= NACHT_VON && h < NACHT_BIS)); }
+  function pruefe() {
+    var d = new Date();
+    document.getElementById("ruhe-zeit").innerHTML = d.getHours() + ":" + zwei(d.getMinutes());
+    var soll = !aus && istNacht(d) && Date.now() > bisZeit;
+    var ist = ruhe.style.display === "block";
+    if (soll && !ist) {
+      if (window.Fokus && /fokus-/.test(document.body.className)) window.Fokus(null);
+      ruhe.style.display = "block"; window.scrollTo(0, 0);
+    } else if (!soll && ist) {
+      ruhe.style.display = "none";
+      if (window.Einpassen) window.Einpassen();
+    }
+  }
+  function kurzZeigen() { bisZeit = Date.now() + ANZEIGE_SEK * 1000; pruefe(); }
+  ruhe.addEventListener("click", function (e) { e.preventDefault(); kurzZeigen(); });
+  // Nachts verlängert jede Berührung auf dem Dashboard die Anzeigezeit
+  document.addEventListener("touchstart", function () { if (ruhe.style.display !== "block" && istNacht(new Date())) bisZeit = Date.now() + ANZEIGE_SEK * 1000; }, false);
+  ruhe.style.display = "none";
+  pruefe(); setInterval(pruefe, 5000);
+})();
+
+</script>
 <script>
 /*
  * Vertretungsplan-Baustein fürs iPad-Dashboard (ohne Server).
