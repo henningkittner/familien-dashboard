@@ -397,39 +397,59 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 </style>
 <script>
 /* Zu lange Texte (Ziele der Abfahrten, Störungsmeldung) wandern langsam hin und her, damit man alles lesen kann.
-   Vor jeder Runde wird neu gemessen, damit auch nach Skalieren, Detailansicht oder Uhr-Ansicht alles läuft. ES5. */
+   Jede Zeile läuft für sich. Die Abfahrten werden jede Minute neu gezeichnet; damit der Text dabei nicht
+   an den Anfang zurückspringt, merkt sich die Laufschrift den Stand pro Text und macht nahtlos weiter. ES5. */
 (function () {
-  var PX_PRO_SEK = 30, PAUSE_MS = 2000, hin = false;
-  function vorbereiten() {
-    var boxen = document.querySelectorAll(".ziel, .st-box");
-    for (var n = 0; n < boxen.length; n++) {
-      var z = boxen[n];
-      if (z.firstChild && z.firstChild.className === "ziel-lauf") continue;
-      if (!z.clientWidth || z.scrollWidth <= z.clientWidth + 1) continue;
-      z.innerHTML = '<span class="ziel-lauf">' + z.innerHTML + "</span>";
-      z.style.textOverflow = "clip";
-    }
+  var PX_PRO_SEK = 30, PAUSE_MS = 2500, TAKT_MS = 500, gedaechtnis = {};
+  function setze(s, x, dauer) {
+    s.style.webkitTransition = dauer ? "-webkit-transform " + dauer + "s linear" : "none";
+    s.style.transition = dauer ? "transform " + dauer + "s linear" : "none";
+    s.style.webkitTransform = s.style.transform = "translate3d(" + x + "px,0,0)";
   }
-  function schritt() {
-    var laengste = 0;
+  function weiter(s, st, jetzt) { // neues Element an der Stelle fortsetzen, wo das alte war
+    var vergangen = (jetzt - st.start) / 1000, rest = st.dauer - vergangen;
+    var anteil = st.dauer ? Math.min(1, Math.max(0, vergangen / st.dauer)) : 1;
+    var x = st.hin ? -st.weg * anteil : -st.weg * (1 - anteil);
+    setze(s, Math.round(x), 0);
+    if (rest > 0.05) setTimeout(function () { setze(s, st.hin ? -st.weg : 0, rest); }, 30);
+  }
+  function takt() {
     try {
-      vorbereiten();
-      hin = !hin;
-      var spans = document.querySelectorAll(".ziel-lauf");
-      for (var n = 0; n < spans.length; n++) {
-        var s = spans[n], weg = s.scrollWidth - s.parentNode.clientWidth;
-        if (weg < 0 || !s.parentNode.clientWidth) weg = 0;
-        var dauer = weg / PX_PRO_SEK;
-        if (dauer > laengste) laengste = dauer;
-        s.style.webkitTransition = "-webkit-transform " + dauer + "s linear";
-        s.style.transition = "transform " + dauer + "s linear";
-        var x = hin && weg ? "translate3d(-" + weg + "px,0,0)" : "translate3d(0,0,0)";
-        s.style.webkitTransform = x; s.style.transform = x;
+      var ruhe = document.getElementById("ruhe");
+      if (ruhe && ruhe.style.display === "block") return; // Uhr-Ansicht: nichts bewegen
+      var jetzt = Date.now(), boxen = document.querySelectorAll(".ziel, .st-box"), gezaehlt = {}, benutzt = {};
+      for (var n = 0; n < boxen.length; n++) {
+        var z = boxen[n], breite = z.clientWidth;
+        var text = (z.textContent || "").replace(/\s+/g, " ");
+        gezaehlt[text] = (gezaehlt[text] || 0) + 1;
+        var schl = gezaehlt[text] + "|" + text;
+        if (!breite) continue; // versteckt
+        var s = z.firstChild && z.firstChild.className === "ziel-lauf" ? z.firstChild : null;
+        if (!s) {
+          if (z.scrollWidth <= breite + 1) continue;
+          z.innerHTML = '<span class="ziel-lauf">' + z.innerHTML + "</span>";
+          z.style.textOverflow = "clip";
+          s = z.firstChild;
+        }
+        benutzt[schl] = true;
+        var weg = s.scrollWidth - breite, st = gedaechtnis[schl];
+        if (!s._lauf) {
+          s._lauf = true;
+          if (st && Math.abs(st.weg - weg) <= 2) { weiter(s, st, jetzt); continue; }
+          st = gedaechtnis[schl] = { hin: false, start: jetzt, dauer: 0, weg: weg, bis: jetzt + PAUSE_MS };
+          setze(s, 0, 0); continue;
+        }
+        if (weg <= 1) { if (st.hin) { st.hin = false; setze(s, 0, 0); } st.weg = 0; continue; }
+        if (Math.abs(st.weg - weg) > 2) { st.weg = weg; if (st.hin && jetzt >= st.start + st.dauer * 1000) setze(s, -weg, 0); }
+        if (jetzt < st.bis) continue;
+        st.hin = !st.hin; st.weg = weg; st.dauer = weg / PX_PRO_SEK; st.start = jetzt;
+        setze(s, st.hin ? -weg : 0, st.dauer);
+        st.bis = jetzt + st.dauer * 1000 + PAUSE_MS;
       }
+      for (var k in gedaechtnis) if (!benutzt[k] && jetzt - gedaechtnis[k].bis > 120000) delete gedaechtnis[k];
     } catch (e) {}
-    setTimeout(schritt, laengste * 1000 + PAUSE_MS);
   }
-  setTimeout(schritt, PAUSE_MS);
+  setInterval(takt, TAKT_MS);
 })();
 
 </script>
@@ -774,7 +794,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
-<style>html:-webkit-full-screen { width: 100%; height: 100%; background: #10151c; } :-webkit-full-screen-ancestor { background: #10151c; } html:-webkit-full-screen .kopf { padding-left: 96px !important; padding-top: 36px !important; } html:-webkit-full-screen #kopf-datum { position: relative; top: -8px; }</style>
+<style>html:-webkit-full-screen { width: 100%; height: 100%; background: #10151c; } :-webkit-full-screen-ancestor { background: #10151c; } html:-webkit-full-screen .kopf { padding-left: 96px !important; padding-top: 36px !important; } html:-webkit-full-screen #kopf-datum { position: relative; top: -8px; } html:-webkit-full-screen .stand { margin-left: -70px; }</style>
 <script>
 /* Vollbild: beim Antippen wechselt Safari (iPad ab iPadOS 12) in den Vollbildmodus, ohne Adressleiste.
    Geht nur durch eine Berührung, nicht automatisch. Fällt der Vollbildmodus weg (z. B. neuer Tab vom Kurzbefehl),
