@@ -874,7 +874,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   #aod-zeit { font-size: 46px; font-weight: 300; line-height: 1; letter-spacing: -.5px; font-variant-numeric: tabular-nums; -webkit-font-feature-settings: "tnum"; }
   #aod-datum { font-size: 18px; font-weight: 500; margin-top: 6px; opacity: .8; }
   #aod-ort { font-size: 48px; font-weight: 400; margin-top: 70px; letter-spacing: .2px; }
-  #aod-wtemp { font-size: 190px; font-weight: 100; line-height: 1; margin: 4px 0 6px 40px; letter-spacing: -4px; }
+  #aod-wtemp { font-size: 190px; font-weight: 100; line-height: 1; margin: 4px 0 6px; letter-spacing: -4px; }
+  .aod-zahl { position: relative; display: inline-block; } /* nur Minus und Ziffern zentriert, ° hängt rechts daran */
+  .aod-grad { position: absolute; left: 100%; top: 0; }
   #aod-wtext { font-size: 30px; font-weight: 500; }
   #aod-whl { font-size: 30px; font-weight: 500; margin-top: 4px; }
 </style>
@@ -907,7 +909,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (!wj) return;
     var cls = "h-" + himmelArt(wj.code) + "-" + (wj.tag ? "tag" : "nacht") + (wj.code === 1 ? " h-teils" : "");
     if (cls !== letzterHimmel) { ruhe.className = cls; letzterHimmel = cls; }
-    document.getElementById("aod-wtemp").innerHTML = Math.round(wj.temp) + "°";
+    document.getElementById("aod-wtemp").innerHTML = '<span class="aod-zahl">' + Math.round(wj.temp) + '<span class="aod-grad">°</span></span>';
     document.getElementById("aod-wtext").innerHTML = wj.text || "";
     document.getElementById("aod-whl").innerHTML = wj.hoch != null ? "H: " + Math.round(wj.hoch) + "° &nbsp;T: " + Math.round(wj.tief) + "°" : "";
   }
