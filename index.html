@@ -709,14 +709,58 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   window.WetterAnim = function (c, tag) {
     var w = tag ? WOLKE : WOLKE_N, wolke = wolkePfad(w);
     if (c === 0) return tag ? svg(sonne(32, 32, 11)) : svg(mond(30, 32, 15) + stern(50, 16, 4, 0) + stern(46, 46, 2.5, 2) + stern(12, 14, 2, 1));
-    if (c === 1 || c === 2) return svg((tag ? sonne(40, 22, 8) : mond(40, 22, 11) + stern(14, 12, 2.5, 1)) + ziehen(wolke, -4, 8, c === 1 ? 0.85 : 1, 5, 14));
-    if (c === 3) return svg(ziehen(wolkePfad(WOLKE_N), 18, 2, 0.7, -4, 17) + ziehen(wolke, -4, 6, 1, 5, 13));
-    if (c === 45 || c === 48) return svg(ziehen(wolke, 0, -4, 1, 3, 15) + nebel(WOLKE_N));
-    if ((c >= 51 && c <= 57) || (c >= 80 && c <= 82 && tag)) return svg((tag ? sonne(42, 18, 7) : "") + regen([26, 38], 1.6) + ziehen(wolke, -2, -2, 1, 3, 12));
-    if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return svg(regen([21, 29, 37, 45], 1.2) + ziehen(wolke, 0, -2, 1, 3, 12));
-    if ((c >= 71 && c <= 77) || c === 85 || c === 86) return svg(schnee() + ziehen(wolke, 0, -2, 1, 3, 14));
-    if (c >= 95) return svg(regen([22, 44], 1.1) + blitz() + ziehen(wolke, 0, -2, 1, 3, 12));
-    return svg(ziehen(wolke, 0, 0, 1, 4, 14));
+    if (c === 1 || c === 2) return svg((tag ? sonne(40, 22, 8) : mond(40, 22, 11) + stern(14, 12, 2.5, 1)) + ziehen(wolke, -4, 8, c === 1 ? 0.85 : 1, 8, 14));
+    if (c === 3) return svg(ziehen(wolkePfad(WOLKE_N), 18, 2, 0.7, -6, 17) + ziehen(wolke, -4, 6, 1, 8, 13));
+    if (c === 45 || c === 48) return svg(ziehen(wolke, 0, -4, 1, 5, 15) + nebel(WOLKE_N));
+    if ((c >= 51 && c <= 57) || (c >= 80 && c <= 82 && tag)) return svg((tag ? sonne(42, 18, 7) : "") + regen([26, 38], 1.6) + ziehen(wolke, -2, -2, 1, 5, 12));
+    if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return svg(regen([21, 29, 37, 45], 1.2) + ziehen(wolke, 0, -2, 1, 5, 12));
+    if ((c >= 71 && c <= 77) || c === 85 || c === 86) return svg(schnee() + ziehen(wolke, 0, -2, 1, 5, 14));
+    if (c >= 95) return svg(regen([22, 44], 1.1) + blitz() + ziehen(wolke, 0, -2, 1, 5, 12));
+    return svg(ziehen(wolke, 0, 0, 1, 6, 14));
+  };
+  /* SMIL lief auf Minas iPad (iOS 15) nicht. Darum: die <animate>-Angaben auslesen, entfernen und per setInterval selbst abspielen. */
+  var laeufer = [], timer = null, t0 = new Date().getTime();
+  function zahlen(s) { var a = s.replace(/^\s+|\s+$/g, "").split(/[\s,]+/), r = []; for (var i = 0; i < a.length; i++) r.push(parseFloat(a[i])); return r; }
+  function sanft(x) { return x * x * (3 - 2 * x); }
+  function wert(l, p) {
+    var v = l.werte, n = v.length - 1, k = l.keys, i = 0;
+    if (n <= 0) return v[0];
+    if (!k) { k = []; for (var j = 0; j <= n; j++) k.push(j / n); }
+    while (i < n - 1 && p > k[i + 1]) i++;
+    var f = (p - k[i]) / ((k[i + 1] - k[i]) || 1); f = Math.max(0, Math.min(1, f));
+    if (l.spline) f = sanft(f);
+    var a = v[i], b = v[i + 1], r = [];
+    for (var m = 0; m < a.length; m++) r.push(a[m] + (b[m] - a[m]) * f);
+    return r;
+  }
+  function schritt() {
+    if (!/fokus-wetter/.test(document.body.className)) return; // nur zeichnen, wenn die Ansicht offen ist
+    var t = (new Date().getTime() - t0) / 1000;
+    for (var i = 0; i < laeufer.length; i++) {
+      var l = laeufer[i], tt = t - l.begin;
+      if (tt < 0) continue;
+      var w = wert(l, (tt % l.dur) / l.dur);
+      if (l.art === "translate") l.el.setAttribute("transform", "translate(" + w[0].toFixed(2) + " " + (w[1] || 0).toFixed(2) + ")");
+      else if (l.art === "rotate") l.el.setAttribute("transform", "rotate(" + w[0].toFixed(1) + " " + (w[1] || 0) + " " + (w[2] || 0) + ")");
+      else l.el.setAttribute(l.attr, w[0].toFixed(3));
+    }
+  }
+  window.WetterAnimLaufen = function (behaelter) {
+    laeufer = [];
+    var an = behaelter.querySelectorAll("animate, animateTransform"), liste = [];
+    for (var i = 0; i < an.length; i++) liste.push(an[i]);
+    for (var j = 0; j < liste.length; j++) {
+      var a = liste[j], werte = [], vs = a.getAttribute("values");
+      if (vs) { var teile = vs.split(";"); for (var k = 0; k < teile.length; k++) werte.push(zahlen(teile[k])); }
+      else werte = [zahlen(a.getAttribute("from")), zahlen(a.getAttribute("to"))];
+      var kt = a.getAttribute("keyTimes"), keys = null;
+      if (kt) { keys = []; var kk = kt.split(";"); for (var m = 0; m < kk.length; m++) keys.push(parseFloat(kk[m])); }
+      laeufer.push({ el: a.parentNode, art: a.tagName === "animateTransform" ? a.getAttribute("type") : "", attr: a.getAttribute("attributeName"),
+        werte: werte, keys: keys, dur: parseFloat(a.getAttribute("dur")), begin: parseFloat(a.getAttribute("begin") || "0"), spline: a.getAttribute("calcMode") === "spline" });
+      a.parentNode.removeChild(a);
+    }
+    if (!timer) timer = setInterval(schritt, 60);
+    schritt();
   };
 })();
 
@@ -856,6 +900,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     }
     html += '</div><div class="wd-quelle">Daten: Open-Meteo · Antippen für Übersicht</div>';
     el.innerHTML = html;
+    if (window.WetterAnimLaufen) window.WetterAnimLaufen(el);
     if (window.Einpassen && /fokus-wetter/.test(document.body.className)) window.Einpassen();
   }
   function zwei(n) { return (n < 10 ? "0" : "") + n; }
