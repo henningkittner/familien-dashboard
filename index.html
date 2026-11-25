@@ -967,10 +967,22 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (an && !wolkenTimer) { wolkenSchritt(true); wolkenTimer = setInterval(function () { wolkenSchritt(false); }, 1000); }
     if (!an && wolkenTimer) { clearInterval(wolkenTimer); wolkenTimer = null; }
   }
-  function beruehrt() { letzte = Date.now(); pruefe(); }
-  ruhe.addEventListener("click", function (e) { e.preventDefault(); beruehrt(); });
+  // Aufwachen nur per Klick auf die Uhr-Ansicht selbst: Würde sie schon bei touchstart verschwinden,
+  // landete der folgende Klick auf der Kachel darunter und öffnete eine Detailansicht (Mina 25.11.).
+  var sperreBis = 0;
+  function sichtbar() { return ruhe.style.display === "block"; }
+  function beruehrt() { letzte = Date.now(); if (!sichtbar()) pruefe(); }
+  function aufwachen() {
+    letzte = Date.now(); pruefe();
+    if (window.Fokus && /fokus-/.test(document.body.className)) window.Fokus(null); // immer Übersicht
+    sperreBis = Date.now() + 800;
+  }
+  ruhe.addEventListener("click", function (e) { e.preventDefault(); aufwachen(); }, false); // läuft weiter zu vollbild.js
   document.addEventListener("touchstart", beruehrt, false);
-  document.addEventListener("click", beruehrt, true);
+  document.addEventListener("click", function (e) {
+    if (Date.now() < sperreBis && !ruhe.contains(e.target)) { e.preventDefault(); e.stopPropagation(); return; } // Nachzügler-Klicks schlucken
+    if (!sichtbar()) beruehrt();
+  }, true);
   ruhe.style.display = "none";
   pruefe(); setInterval(pruefe, 5000);
 })();
