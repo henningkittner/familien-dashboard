@@ -948,7 +948,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
-<div id="ruhe" class="h-wolken"><div id="aod-himmel"><div class="hs-sonne"></div><div class="hs-sterne"></div><div class="hw hw1"></div><div class="hw hw2"></div><div class="hw hw3"></div><div class="hw hw4"></div><div class="hw hw5"></div><div class="hn hn1"></div><div class="hn hn2"></div><div class="hs-blitz"></div></div><div id="aod"><div id="aod-zeit"></div><div id="aod-datum"></div><div id="aod-ort">Unterhaching</div><div id="aod-wtemp"></div><div id="aod-wtext"></div><div id="aod-whl"></div><div id="aod-entfall"></div></div></div>
+<div id="ruhe" class="h-wolken"><div id="aod-himmel"><div class="hs-sonne"></div><div class="hs-sterne"></div><div class="hw hw1"></div><div class="hw hw2"></div><div class="hw hw3"></div><div class="hw hw4"></div><div class="hw hw5"></div><div class="hn hn1"></div><div class="hn hn2"></div><div class="hs-blitz"></div></div><div id="aod"><div id="aod-zeit"></div><div id="aod-datum"></div><div id="aod-ort">Unterhaching</div><div id="aod-wtemp"></div><div id="aod-wtext"></div><div id="aod-whl"></div><div id="aod-entfall"></div></div><div id="aod-schalter" role="button"><span class="aod-power"></span>Schlafzimmer</div></div>
 <style>
   /* Uhr-Ansicht im Stil eines Wetter-App-Kopfs: dunkler, wetterabhängiger Himmel, gedimmt */
   #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; overflow: hidden; }
@@ -1004,6 +1004,11 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   #aod-whl { font-size: 30px; font-weight: 500; margin-top: 4px; }
   #aod-entfall { margin-top: 34px; font-size: 24px; font-weight: 500; line-height: 1.5; color: #ffb3ba; } /* nur Entfall, keine Vertretungen (Mina 25.11.) */
   #aod-entfall b { font-weight: 700; }
+  /* Schalter für die Steckdose im Schlafzimmer: startet den Kurzbefehl „Schlafzimmer“ (Mina 25.11.) */
+  #aod-schalter { position: absolute; left: 50%; bottom: 5%; -webkit-transform: translateX(-50%); transform: translateX(-50%); padding: 16px 30px 16px 22px; border-radius: 40px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); color: #fff; opacity: .6; font-size: 24px; font-weight: 500; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
+  #aod-schalter.gedrueckt { background: rgba(255,255,255,.35); opacity: 1; }
+  .aod-power { display: inline-block; vertical-align: -5px; width: 22px; height: 22px; margin-right: 12px; border: 3px solid #fff; border-top-color: transparent; border-radius: 50%; position: relative; }
+  .aod-power:after { content: ""; position: absolute; left: 50%; top: -7px; width: 3px; height: 13px; margin-left: -1.5px; background: #fff; border-radius: 2px; }
 </style>
 <script>
 /* Uhr-Ansicht: nach RUHE_SEK Sekunden ohne Berührung gedimmte Ansicht wie der Kopf einer Wetter-App:
@@ -1120,6 +1125,19 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     letzte = Date.now(); pruefe();
     if (window.Fokus && /fokus-/.test(document.body.className)) window.Fokus(null); // immer Übersicht
     sperreBis = Date.now() + 800;
+  }
+  // Schalter Steckdose Schlafzimmer: startet den Kurzbefehl, der per Home-App umschaltet und das Dashboard
+  // mit ?nacht=1 wieder öffnet. Berührungen am Schalter wecken das Dashboard nicht auf.
+  var schalter = document.getElementById("aod-schalter");
+  if (schalter) {
+    var halt = function (e) { e.stopPropagation(); };
+    schalter.addEventListener("touchstart", halt, false);
+    schalter.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      schalter.className = "gedrueckt";
+      setTimeout(function () { schalter.className = ""; }, 1500);
+      location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent("Schlafzimmer");
+    }, false);
   }
   ruhe.addEventListener("click", function (e) { e.preventDefault(); aufwachen(); }, false); // läuft weiter zu vollbild.js
   document.addEventListener("touchstart", beruehrt, false);
