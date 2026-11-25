@@ -825,7 +825,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
-<div id="ruhe" class="h-wolken"><div id="aod-himmel"><div class="hs-sonne"></div><div class="hs-sterne"></div><div class="hw hw1"></div><div class="hw hw2"></div><div class="hw hw3"></div><div class="hw hw4"></div><div class="hw hw5"></div><div class="hn hn1"></div><div class="hn hn2"></div><div class="hs-blitz"></div></div><div id="aod"><div id="aod-zeit"></div><div id="aod-datum"></div><div id="aod-ort">Unterhaching</div><div id="aod-wtemp"></div><div id="aod-wtext"></div><div id="aod-whl"></div></div></div>
+<div id="ruhe" class="h-wolken"><div id="aod-himmel"><div class="hs-sonne"></div><div class="hs-sterne"></div><div class="hw hw1"></div><div class="hw hw2"></div><div class="hw hw3"></div><div class="hw hw4"></div><div class="hw hw5"></div><div class="hn hn1"></div><div class="hn hn2"></div><div class="hs-blitz"></div></div><div id="aod"><div id="aod-zeit"></div><div id="aod-datum"></div><div id="aod-ort">Unterhaching</div><div id="aod-wtemp"></div><div id="aod-wtext"></div><div id="aod-whl"></div><div id="aod-entfall"></div></div></div>
 <style>
   /* Uhr-Ansicht im Stil eines Wetter-App-Kopfs: dunkler, wetterabhängiger Himmel, gedimmt */
   #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; overflow: hidden; }
@@ -879,6 +879,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .aod-grad { position: absolute; left: 100%; top: 0; }
   #aod-wtext { font-size: 30px; font-weight: 500; }
   #aod-whl { font-size: 30px; font-weight: 500; margin-top: 4px; }
+  #aod-entfall { margin-top: 34px; font-size: 24px; font-weight: 500; line-height: 1.5; color: #ffb3ba; } /* nur Entfall, keine Vertretungen (Mina 25.11.) */
+  #aod-entfall b { font-weight: 700; }
 </style>
 <script>
 /* Uhr-Ansicht: nach RUHE_SEK Sekunden ohne Berührung gedimmte Ansicht wie der Kopf einer Wetter-App:
@@ -913,6 +915,24 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     document.getElementById("aod-wtext").innerHTML = wj.text || "";
     document.getElementById("aod-whl").innerHTML = wj.hoch != null ? "H: " + Math.round(wj.hoch) + "° &nbsp;T: " + Math.round(wj.tief) + "°" : "";
   }
+  function entfall() { // nur Entfall aus dem Vertretungsplan, je Kind eine Zeile, z. B. „Anna: Heute 3., 4. Std“
+    var kinder = document.querySelectorAll("#vertretung .vp-kind"), html = "";
+    for (var i = 0; i < kinder.length; i++) {
+      var kopf = kinder[i].querySelector(".vp-kopf"), name = "";
+      if (kopf) for (var c = kopf.firstChild; c; c = c.nextSibling) if (c.nodeType === 3) name += c.nodeValue;
+      name = name.replace(/^\s+|\s+$/g, "").split(" ")[0];
+      var tage = kinder[i].querySelectorAll(".vp-tag"), teile = [];
+      for (var j = 0; j < tage.length; j++) {
+        var std = tage[j].querySelectorAll(".vp-entfall .vp-std"), liste = [];
+        for (var n = 0; n < std.length; n++) liste.push(txt(std[n]));
+        if (!liste.length) continue;
+        var tn = txt(tage[j].querySelector(".vp-tagname")).split(" · ")[0].split(" ")[0];
+        teile.push(tn + " " + liste.join(", ") + " Std");
+      }
+      if (teile.length) html += "<div>Entfall " + name + ": <b>" + teile.join(" · ") + "</b></div>";
+    }
+    return html;
+  }
   function abfahrten() {
     var html = "";
     for (var i = 0; i < 4; i++) {
@@ -929,6 +949,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     document.getElementById("aod-datum").innerHTML = WT[d.getDay()] + ", " + d.getDate() + ". " + MO[d.getMonth()];
     document.getElementById("aod-zeit").innerHTML = d.getHours() + ":" + zwei(d.getMinutes());
     wetter();
+    var ef = entfall(), efEl = document.getElementById("aod-entfall"); if (efEl.innerHTML !== ef) efEl.innerHTML = ef;
     // Abfahrten in der Uhr-Ansicht auf Minas Wunsch weggelassen (abfahrten() bleibt für später)
     if (d.getMinutes() !== letzteMinute) { // langsam wandern
       letzteMinute = d.getMinutes();
