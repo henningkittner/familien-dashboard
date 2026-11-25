@@ -647,6 +647,81 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 
 </script>
 <script>
+/* Animierte Wettersymbole für die Uhr-Ansicht. SVG mit SMIL-Animation (läuft in Safari ab iOS 9), ruhig und langsam. ES5.
+   WetterAnim(code, tag) liefert ein SVG (viewBox 0 0 64 64) zum aktuellen Open-Meteo-Wettercode. */
+(function () {
+  var GELB = "#FFC933", WOLKE = "#E6E8EE", WOLKE_N = "#B9BFCA", BLAU = "#5AAEF5", MOND = "#F4F1E3";
+  function wolkePfad(f) { return '<path fill="' + f + '" d="M17 44h29a9.5 9.5 0 0 0 .6-19A13 13 0 0 0 21.5 22 10.5 10.5 0 0 0 17 44z"/>'; }
+  function ziehen(inhalt, dx, dy, s, weite, dauer) { // Wolke zieht sanft hin und her
+    return '<g transform="translate(' + dx + "," + dy + ") scale(" + s + ')"><g>' + inhalt +
+      '<animateTransform attributeName="transform" type="translate" values="0 0;' + weite + ' 0;0 0" dur="' + dauer + 's" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"/></g></g>';
+  }
+  function sonne(cx, cy, r) {
+    var strahlen = "";
+    for (var i = 0; i < 8; i++) {
+      var w = i * Math.PI / 4, a = r + 4, b = r + 9;
+      strahlen += '<line x1="' + (cx + a * Math.cos(w)).toFixed(1) + '" y1="' + (cy + a * Math.sin(w)).toFixed(1) + '" x2="' + (cx + b * Math.cos(w)).toFixed(1) +
+        '" y2="' + (cy + b * Math.sin(w)).toFixed(1) + '"/>';
+    }
+    return '<g stroke="' + GELB + '" stroke-width="3.5" stroke-linecap="round">' + strahlen +
+      '<animateTransform attributeName="transform" type="rotate" from="0 ' + cx + " " + cy + '" to="360 ' + cx + " " + cy + '" dur="40s" repeatCount="indefinite"/></g>' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + GELB + '"><animate attributeName="opacity" values="1;.8;1" dur="5s" repeatCount="indefinite"/></circle>';
+  }
+  function mond(cx, cy, r) {
+    return '<path fill="' + MOND + '" d="M' + (cx + r * 0.25) + " " + (cy - r) + "A" + r + " " + r + " 0 1 0 " + (cx + r) + " " + (cy + r * 0.35) +
+      "A" + (r * 0.85) + " " + (r * 0.85) + " 0 0 1 " + (cx + r * 0.25) + " " + (cy - r) + 'z"/>';
+  }
+  function stern(x, y, g, start) {
+    return '<path fill="' + MOND + '" d="M' + x + " " + (y - g) + "L" + (x + g * 0.3) + " " + (y - g * 0.3) + "L" + (x + g) + " " + y + "L" + (x + g * 0.3) + " " + (y + g * 0.3) +
+      "L" + x + " " + (y + g) + "L" + (x - g * 0.3) + " " + (y + g * 0.3) + "L" + (x - g) + " " + y + "L" + (x - g * 0.3) + " " + (y - g * 0.3) + 'z">' +
+      '<animate attributeName="opacity" values="1;.2;1" dur="4s" begin="' + start + 's" repeatCount="indefinite"/></path>';
+  }
+  function regen(xs, dauer) {
+    var s = "";
+    for (var i = 0; i < xs.length; i++) {
+      var b = (i * dauer / xs.length).toFixed(2);
+      s += '<line x1="' + xs[i] + '" y1="46" x2="' + (xs[i] - 2) + '" y2="52" stroke="' + BLAU + '" stroke-width="3" stroke-linecap="round" opacity="0">' +
+        '<animateTransform attributeName="transform" type="translate" values="0 0;-3 11" dur="' + dauer + 's" begin="' + b + 's" repeatCount="indefinite"/>' +
+        '<animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.7;1" dur="' + dauer + 's" begin="' + b + 's" repeatCount="indefinite"/></line>';
+    }
+    return s;
+  }
+  function schnee() {
+    var s = "", xs = [20, 30, 40, 26, 36];
+    for (var i = 0; i < xs.length; i++) {
+      var b = (i * 0.9).toFixed(1);
+      s += '<circle cx="' + xs[i] + '" cy="46" r="2.4" fill="#FFFFFF" opacity="0">' +
+        '<animateTransform attributeName="transform" type="translate" values="0 0;2 5;-1 10;1 15" dur="4.5s" begin="' + b + 's" repeatCount="indefinite"/>' +
+        '<animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.75;1" dur="4.5s" begin="' + b + 's" repeatCount="indefinite"/></circle>';
+    }
+    return s;
+  }
+  function blitz() {
+    return '<path fill="' + GELB + '" opacity="0" d="M33 42l-7 11h6l-3 9 10-13h-6l4-7z">' +
+      '<animate attributeName="opacity" values="0;0;1;.2;1;0;0" keyTimes="0;.6;.63;.66;.7;.76;1" dur="7s" repeatCount="indefinite"/></path>';
+  }
+  function nebel(f) {
+    return '<g stroke="' + f + '" stroke-width="3.5" stroke-linecap="round">' +
+      '<line x1="14" y1="49" x2="50" y2="49"><animateTransform attributeName="transform" type="translate" values="0 0;4 0;0 0" dur="9s" repeatCount="indefinite"/></line>' +
+      '<line x1="20" y1="56" x2="44" y2="56"><animateTransform attributeName="transform" type="translate" values="0 0;-4 0;0 0" dur="11s" repeatCount="indefinite"/></line></g>';
+  }
+  function svg(inhalt) { return '<svg viewBox="0 0 64 64" width="100%" height="100%" overflow="visible">' + inhalt + "</svg>"; }
+  window.WetterAnim = function (c, tag) {
+    var w = tag ? WOLKE : WOLKE_N, wolke = wolkePfad(w);
+    if (c === 0) return tag ? svg(sonne(32, 32, 11)) : svg(mond(30, 32, 15) + stern(50, 16, 4, 0) + stern(46, 46, 2.5, 2) + stern(12, 14, 2, 1));
+    if (c === 1 || c === 2) return svg((tag ? sonne(40, 22, 8) : mond(40, 22, 11) + stern(14, 12, 2.5, 1)) + ziehen(wolke, -4, 8, c === 1 ? 0.85 : 1, 5, 14));
+    if (c === 3) return svg(ziehen(wolkePfad(WOLKE_N), 18, 2, 0.7, -4, 17) + ziehen(wolke, -4, 6, 1, 5, 13));
+    if (c === 45 || c === 48) return svg(ziehen(wolke, 0, -4, 1, 3, 15) + nebel(WOLKE_N));
+    if ((c >= 51 && c <= 57) || (c >= 80 && c <= 82 && tag)) return svg((tag ? sonne(42, 18, 7) : "") + regen([26, 38], 1.6) + ziehen(wolke, -2, -2, 1, 3, 12));
+    if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return svg(regen([21, 29, 37, 45], 1.2) + ziehen(wolke, 0, -2, 1, 3, 12));
+    if ((c >= 71 && c <= 77) || c === 85 || c === 86) return svg(schnee() + ziehen(wolke, 0, -2, 1, 3, 14));
+    if (c >= 95) return svg(regen([22, 44], 1.1) + blitz() + ziehen(wolke, 0, -2, 1, 3, 12));
+    return svg(ziehen(wolke, 0, 0, 1, 4, 14));
+  };
+})();
+
+</script>
+<script>
 /* Wetter für 82008 Unterhaching über Open-Meteo (kostenlos, ohne Schlüssel, CORS erlaubt). ES5.
    Eigene SVG-Symbole im Stil der Apple-Wetter-App (gefüllt, mehrfarbig). */
 (function () {
@@ -690,7 +765,10 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   }
   var GROESSE = 52;
   function svg(inhalt) { return '<svg viewBox="0 0 64 64" width="' + GROESSE + '" height="' + GROESSE + '">' + inhalt + "</svg>"; }
-  function symbolG(c, tag, g) { var alt = GROESSE; GROESSE = g; var s = symbol(c, tag); GROESSE = alt; return s; }
+  function symbolG(c, tag, g) { // Detailansicht: animiert (wetter_anim.js), sonst statisch
+    if (window.WetterAnim) return window.WetterAnim(c, !!tag).replace('width="100%" height="100%"', 'width="' + g + '" height="' + g + '"');
+    var alt = GROESSE; GROESSE = g; var s = symbol(c, tag); GROESSE = alt; return s;
+  }
   function symbol(c, tag) {
     var w = tag ? WOLKE : WOLKE_N;
     if (c === 0) return tag ? svg(sonne(32, 32, 11)) : svg(mond(30, 32, 15) + stern(50, 16, 4) + stern(46, 46, 2.5));
