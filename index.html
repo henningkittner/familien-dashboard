@@ -1137,7 +1137,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       (d.fehler || alt ? '<div class="so-klein so-stand">' + (d.fehler ? "Anker: " + d.fehler : "Stand " + zwei(t.getHours()) + ":" + zwei(t.getMinutes())) + "</div>" : "") + "</div>";
   }
   function start() {
-    try { var neu = ausHash(); if (neu) { if (neu.fehler) { var a = laden(); if (a) { a.fehler = neu.fehler; neu = a; } } speichern(neu); } } catch (e) {}
+    try { var neu = ausHash(); if (neu) { if (neu.fehler) { var a = laden(); if (a) { a.fehler = neu.fehler; neu = a; } } speichern(neu); } } catch (e) { if (/[#&]pv=/.test(location.hash)) speichern({ zeit: Date.now(), fehler: "Daten unlesbar (" + location.hash.length + " Zeichen): " + e.message }); }
     zeichnen();
   }
   var stil = document.createElement("style");
