@@ -71,9 +71,80 @@ button.ok{background:#30a14e}
 <div class="t">@@SA@@</div>
 <button onclick="kopiere(17,this)">Kopieren</button></div>
 
+<h1 id="solar" style="margin-top:28px">Muster für den Kurzbefehl „Solar“</h1>
+<p>Die Nummern passen zur Anleitung Teil 2. H1 bis H8 sind die Header (links Schlüssel, rechts Wert).</p>
+<div class="k"><div class="kopf"><span class="nr">Solar 2</span>URL – Anmeldung</div>
+<div class="t">https://ankerpower-api-eu.anker.com/passport/login</div>
+<button onclick="kopiere(18,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H1</span>Header-Schlüssel</div>
+<div class="t">Content-Type</div>
+<button onclick="kopiere(19,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H1</span>Header-Wert</div>
+<div class="t">application/json</div>
+<button onclick="kopiere(20,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H2</span>Header-Schlüssel</div>
+<div class="t">Country</div>
+<button onclick="kopiere(21,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H2</span>Header-Wert</div>
+<div class="t">DE</div>
+<button onclick="kopiere(22,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H3</span>Header-Schlüssel</div>
+<div class="t">Timezone</div>
+<button onclick="kopiere(23,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H3</span>Header-Wert (Winter; im Sommer GMT+02:00)</div>
+<div class="t">GMT+01:00</div>
+<button onclick="kopiere(24,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H4</span>Header-Schlüssel</div>
+<div class="t">App-Name</div>
+<button onclick="kopiere(25,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H4</span>Header-Wert</div>
+<div class="t">anker_power</div>
+<button onclick="kopiere(26,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H5</span>Header-Schlüssel</div>
+<div class="t">Os-Type</div>
+<button onclick="kopiere(27,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H5</span>Header-Wert</div>
+<div class="t">android</div>
+<button onclick="kopiere(28,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H6</span>Header-Schlüssel</div>
+<div class="t">Model-Type</div>
+<button onclick="kopiere(29,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H6</span>Header-Wert</div>
+<div class="t">DESKTOP</div>
+<button onclick="kopiere(30,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">3</span>Wörterbuchwert – Schlüssel</div>
+<div class="t">data</div>
+<button onclick="kopiere(31,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">4</span>Wörterbuchwert – Schlüssel</div>
+<div class="t">auth_token</div>
+<button onclick="kopiere(32,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">5</span>Wörterbuchwert – Schlüssel</div>
+<div class="t">user_id</div>
+<button onclick="kopiere(33,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">6</span>URL – Anlagenliste</div>
+<div class="t">https://ankerpower-api-eu.anker.com/power_service/v1/site/get_site_list</div>
+<button onclick="kopiere(34,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H7</span>Header-Schlüssel (Wert: Blase Token)</div>
+<div class="t">X-Auth-Token</div>
+<button onclick="kopiere(35,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">H8</span>Header-Schlüssel (Wert: Blase GToken)</div>
+<div class="t">gtoken</div>
+<button onclick="kopiere(36,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">7</span>Wörterbuchwert – Schlüssel</div>
+<div class="t">site_list</div>
+<button onclick="kopiere(37,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">7</span>Wörterbuchwert – Schlüssel (auch für das JSON-Feld in 8)</div>
+<div class="t">site_id</div>
+<button onclick="kopiere(38,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">8</span>URL – aktuelle Werte</div>
+<div class="t">https://ankerpower-api-eu.anker.com/power_service/v1/site/get_scen_info</div>
+<button onclick="kopiere(39,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">11</span>Text – vor der Blase „Aktualisierter Text“</div>
+<div class="t">https://henningkittner.github.io/familien-dashboard/#pv=</div>
+<button onclick="kopiere(40,this)">Kopieren</button></div>
 <textarea id="puffer" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px" readonly></textarea>
 <script>
-var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "vp_", ".txt", "(?m)^\\d{1,2}\\. ·", "Vertretungsplan für ", "\\s*·?\\s*&nbsp;", "(\\d{2}\\.\\d{2}\\.\\d{4})(?=\\n[A-Z][a-z]\\.,|\\s*$)", "$1\nkeine Änderungen", "https://wkrstauf.eltern-portal.org/service/termine/liste/schulaufgaben", "sa.txt", "<tr[\\s\\S]*?</tr>", "@@SA@@"];
+var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "vp_", ".txt", "(?m)^\\d{1,2}\\. ·", "Vertretungsplan für ", "\\s*·?\\s*&nbsp;", "(\\d{2}\\.\\d{2}\\.\\d{4})(?=\\n[A-Z][a-z]\\.,|\\s*$)", "$1\nkeine Änderungen", "https://wkrstauf.eltern-portal.org/service/termine/liste/schulaufgaben", "sa.txt", "<tr[\\s\\S]*?</tr>", "@@SA@@", "https://ankerpower-api-eu.anker.com/passport/login", "Content-Type", "application/json", "Country", "DE", "Timezone", "GMT+01:00", "App-Name", "anker_power", "Os-Type", "android", "Model-Type", "DESKTOP", "data", "auth_token", "user_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_site_list", "X-Auth-Token", "gtoken", "site_list", "site_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_scen_info", "https://henningkittner.github.io/familien-dashboard/#pv="];
 function fertig(knopf, ok) {
   knopf.innerHTML = ok ? "Kopiert ✓" : "Bitte Text lange drücken";
   knopf.className = ok ? "ok" : "";
