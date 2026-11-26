@@ -1359,7 +1359,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   var ZEILEN = 6;
   var SA_ANZAHL = 3;
   // Im Stundenplan bei geteilten Fächern („Sm/Sw“) diese Teile pro Kind (Vorname) weglassen
-  var SP_WEGLASSEN = { Anna: ["Sm"], Felix: ["Sw"] }; // so viele kommende Schulaufgaben pro Kind // feste Zeilenzahl pro Kind, damit sich das Layout nicht verschiebt
+  var SP_WEGLASSEN = { Anna: ["Sm", "K", "Eth"], Felix: ["Sw", "K", "Eth"] }; // so viele kommende Schulaufgaben pro Kind // feste Zeilenzahl pro Kind, damit sich das Layout nicht verschiebt
   var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
   function iso(d) {
