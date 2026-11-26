@@ -1424,6 +1424,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       return;
     }
     var heute = iso(new Date()), html = "";
+    var mitSA = false;
+    for (var q = 0; q < d.kinder.length; q++) if (d.kinder[q].schulaufgaben) mitSA = true;
     for (var i = 0; i < d.kinder.length; i++) {
       var k = d.kinder[i], gezeigt = 0, zeilen = 0;
       html += '<div class="vp-kind"><div class="vp-kopf"><span class="vp-avatar vp-avatar' + (i % 2) + '">' + esc(k.name.charAt(0)) + "</span>" + esc(k.name) + (k.klasse ? "<small>Klasse " + esc(k.klasse) + "</small>" : "") + "</div>";
@@ -1448,7 +1450,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var hhmm = (zeit.getHours() < 10 ? "0" : "") + zeit.getHours() + ":" + (zeit.getMinutes() < 10 ? "0" : "") + zeit.getMinutes();
     html += '<div class="vp-fuss' + (alter > 6 * 60 ? " vp-alt" : "") + '">Abgerufen ' +
       (iso(zeit) === heute ? "heute " : WT[zeit.getDay()] + " ") + hhmm +
-      (fehler ? " · Fehler: " + esc(fehler) : "") + "</div>";
+      (fehler ? " · Fehler: " + esc(fehler) : "") + (mitSA ? "" : " · ohne Schulaufgaben") + "</div>";
     ziel.innerHTML = html;
   }
 
