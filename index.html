@@ -1244,7 +1244,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
  * öffnet das Dashboard mit den Daten im Link-Hash:
  *     https://<dashboard>/#vp=<Base64>
  * Base64-Inhalt (UTF-8): pro Kind  "Name\n<HTML der Vertretungsplan-Seite>",
- * Kinder getrennt durch "@@KIND@@".
+ * Kinder getrennt durch "@@KIND@@". Optional pro Kind hinter "@@SA@@" die
+ * Tabellenzeilen der Seite /service/termine/liste/schulaufgaben.
  * Der Hash wird nie an einen Server geschickt. Die Seite merkt sich die
  * Daten im localStorage des iPads und entfernt sie danach aus der Adresse.
  *
@@ -1255,7 +1256,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 (function () {
   var SPEICHER = "vertretungsplan_v1";
   var TAGE_ANZEIGEN = 2;
-  var ZEILEN = 6; // feste Zeilenzahl pro Kind, damit sich das Layout nicht verschiebt
+  var ZEILEN = 6;
+  var SA_ANZAHL = 3; // so viele kommende Schulaufgaben pro Kind // feste Zeilenzahl pro Kind, damit sich das Layout nicht verschiebt
   var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
   function iso(d) {
@@ -1280,6 +1282,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 
   /* Zerlegt die Seite /service/vertretungsplan (gleiche Logik wie das Python-Skript) */
   function parsen(html) {
+    html = String(html).split("@@SA@@")[0];
     var doc = new DOMParser().parseFromString(html, "text/html");
     var inhalt = doc.getElementById("asam_content") || doc.body;
     var h2 = inhalt.querySelector("h2");
@@ -1330,6 +1333,33 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     return plan;
   }
 
+  /* Schulaufgaben: Zeilen der Seite /service/termine/liste/schulaufgaben
+     (Spalte 1 Datum, Spalte 3 Titel). Liefert [{datum, titel}], nach Datum sortiert. */
+  function saParsen(html) {
+    var doc = new DOMParser().parseFromString("<table>" + html + "</table>", "text/html");
+    var zeilen = doc.querySelectorAll("tr"), liste = [], gesehen = {};
+    for (var z = 0; z < zeilen.length; z++) {
+      var c = zeilen[z].querySelectorAll("td, th");
+      if (c.length < 2) continue;
+      var d = null, dz = -1;
+      for (var a = 0; a < c.length && !d; a++) { d = txt(c[a]).match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/); dz = a; }
+      if (!d) continue;
+      var titel = c.length > 2 && dz !== 2 ? txt(c[2]) : "";
+      if (!titel) {
+        var teile = [];
+        for (var b = 0; b < c.length; b++) if (b !== dz && txt(c[b])) teile.push(txt(c[b]));
+        titel = teile.join(" · ");
+      }
+      if (!titel) continue;
+      var datum = d[3] + "-" + (d[2].length < 2 ? "0" : "") + d[2] + "-" + (d[1].length < 2 ? "0" : "") + d[1];
+      if (gesehen[datum + titel]) continue;
+      gesehen[datum + titel] = 1;
+      liste.push({ datum: datum, titel: titel });
+    }
+    liste.sort(function (x, y) { return x.datum < y.datum ? -1 : x.datum > y.datum ? 1 : 0; });
+    return liste;
+  }
+
   function ausHash() {
     var m = location.hash.match(/[#&]vp=([^&]+)/);
     if (!m) return null;
@@ -1341,7 +1371,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       if (!b) continue;
       var nl = b.indexOf("\n");
       var name = (nl > 0 ? b.slice(0, nl) : "Kind " + (i + 1)).split("(")[0].replace(/^\s+|\s+$/g, "");
-      var plan = parsen(nl > 0 ? b.slice(nl + 1) : b);
+      var rest = nl > 0 ? b.slice(nl + 1) : b, sa = rest.indexOf("@@SA@@");
+      var plan = parsen(rest);
+      if (sa >= 0) plan.schulaufgaben = saParsen(rest.slice(sa + 6));
       plan.name = name;
       kinder.push(plan);
     }
@@ -1369,6 +1401,23 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     return '<div class="vp-zeile vp-' + esc(e.art) + '"><div class="vp-std">' + esc(e.stunde) + '.</div><div class="vp-was">' +
       titel + (e.info ? '<span class="vp-info">' + esc(e.info) + "</span>" : "") + "</div></div>";
   }
+  function saBlock(k, heute) {
+    if (!k.schulaufgaben) return { html: "", zeilen: 0 };
+    var h = new Date(), html = "", n = 0;
+    var heute0 = new Date(h.getFullYear(), h.getMonth(), h.getDate()).getTime();
+    for (var i = 0; i < k.schulaufgaben.length && n < SA_ANZAHL; i++) {
+      var s = k.schulaufgaben[i];
+      if (s.datum < heute) continue;
+      var p = s.datum.split("-"), tag = new Date(+p[0], +p[1] - 1, +p[2]);
+      var diff = Math.round((tag.getTime() - heute0) / 86400000);
+      var wann = diff === 0 ? "heute" : diff === 1 ? "morgen" : "in " + diff + " Tagen";
+      html += '<div class="vp-sa' + (diff <= 2 ? " vp-sa-bald" : "") + '"><span class="vp-sa-dat">' + WT[tag.getDay()] + " " + p[2] + "." + p[1] + '.</span><span class="vp-sa-titel">' +
+        esc(s.titel) + '</span><span class="vp-sa-wann">' + wann + "</span></div>";
+      n++;
+    }
+    if (!n) { html = '<div class="vp-sa vp-sa-keine">Keine angekündigt</div>'; n = 1; }
+    return { html: '<div class="vp-sa-block"><div class="vp-tagname">Schulaufgaben</div>' + html + "</div>", zeilen: n };
+  }
   function zeichnen(ziel, d) {
     if (!d || !d.kinder) {
       ziel.innerHTML = '<div class="vp-leer">Noch keine Daten. Bitte den Kurzbefehl „Vertretungsplan“ einmal starten.</div>';
@@ -1389,6 +1438,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
         html += "</div>";
       }
       if (!gezeigt) { html += '<div class="vp-ok">Noch kein Plan für die nächsten Tage</div>'; zeilen++; }
+      var sab = saBlock(k, heute);
+      html += sab.html; zeilen += sab.zeilen;
       for (; zeilen < ZEILEN; zeilen++) html += '<div class="vp-zeile vp-leer-zeile"><div class="vp-std">&nbsp;</div><div class="vp-was">&nbsp;</div></div>';
       html += "</div>";
     }
@@ -1412,6 +1463,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     ".vp-raum,.vp-sonstiges{background:#1f3346;border-left:6px solid #5aa9ff}" +
     ".vp-ok{font-size:18px;color:#7ddc8a;padding:4px 0}.vp-hinweis{font-size:16px;color:#c9d1db;padding:4px 0}" +
     ".vp-leer-zeile{background:transparent}" +
+    ".vp-sa-block{margin-top:10px}.vp-sa{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:baseline;align-items:baseline;font-size:17px;padding:2px 0;color:#dfe5ec}" +
+    ".vp-sa-dat{width:86px;-webkit-flex-shrink:0;flex-shrink:0;color:#9aa6b5;font-size:15px}.vp-sa-titel{-webkit-flex:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+    ".vp-sa-wann{-webkit-flex-shrink:0;flex-shrink:0;margin-left:8px;font-size:14px;color:#9aa6b5}.vp-sa-bald .vp-sa-wann{color:#ffc53d;font-weight:700}.vp-sa-keine{color:#9aa6b5;font-size:15px}" +
     ".vp-leer{font-size:18px;color:#9aa6b5;padding:12px 0}.vp-fuss{font-size:13px;color:#6d7887;margin-top:4px}.vp-fuss.vp-alt{color:#ff8f99}";
 
   var fehler = "";
