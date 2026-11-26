@@ -1139,7 +1139,10 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       kiGespart: zahl(ki.aiems_profit_total), kiProzent: zahl(ki.percentage), waehrung: ki.unit || "€",
       geraete: geraete,
       fehler: j && j.code ? (j.msg || "Fehler " + j.code) : null,
-      tag: tageswerte(paket)
+      tag: tageswerte(paket),
+      tagInfo: !paket || !paket.scen ? "Tageswerte: im Paket fehlt \"scen\" (alter Kurzbefehl?)" :
+        !paket.haus || !paket.solar ? "Tageswerte: haus/solar fehlen" :
+        paket.haus.code || paket.solar.code ? "Tageswerte: Anker " + (paket.haus.code ? "haus " + paket.haus.code + " " + (paket.haus.msg || "") : "") + (paket.solar.code ? " solar " + paket.solar.code + " " + (paket.solar.msg || "") : "") : ""
     };
   }
   // Tageswerte aus energy_analysis (type day): Summen in kWh, Kurven in W alle 20 Min
@@ -1325,6 +1328,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var d = laden();
     if (!d) { el.innerHTML = ""; return; }
     var t = d.tag && d.tag.datum === heuteISO() ? d.tag : null;
+    var tagInfo = d.tagInfo || (d.tag && !t ? "Tageswerte vom " + d.tag.datum : "");
     var haus = d.haus || 0, zuHaus = d.zuHaus || 0, eigen = haus > 0 ? Math.min(100, Math.round(zuHaus / haus * 100)) : null;
     var rest = d.soc != null && d.kwh ? d.kwh * d.soc / 100 : null, i, pvKl = [];
     for (i = 0; i < (d.pvs || []).length; i++) if (d.pvs[i] > 0) pvKl.push("PV" + (i + 1) + " " + watt(d.pvs[i]));
@@ -1346,7 +1350,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var ger = [];
     for (i = 0; i < (d.geraete || []).length; i++) ger.push('<span class="' + (d.geraete[i].an ? "sd-an" : "sd-aus") + '">●</span> ' + esc(d.geraete[i].name) + (d.geraete[i].an ? "" : " (offline)"));
     if (t && d.erzeugt != null) ger.push("Gesamt " + tausend(d.erzeugt, 0) + " kWh erzeugt, " + (d.gespart != null ? tausend(d.gespart, 2) + " " + esc(d.waehrung || "€") + " gespart" : ""));
-    html += '<div class="sd-fuss">' + ger.join(" &nbsp; ") + (ger.length ? " &nbsp;·&nbsp; " : "") + "Abgerufen " + hhmm(d.zeit) + (d.anker ? " · Anker-Stand " + esc(d.anker.slice(11, 16)) : "") + (d.fehler ? ' · <span class="sd-aus">Anker: ' + esc(d.fehler) + "</span>" : "") + "</div>";
+    html += '<div class="sd-fuss">' + ger.join(" &nbsp; ") + (ger.length ? " &nbsp;·&nbsp; " : "") + "Abgerufen " + hhmm(d.zeit) + (d.anker ? " · Anker-Stand " + esc(d.anker.slice(11, 16)) : "") + (d.fehler ? ' · <span class="sd-aus">Anker: ' + esc(d.fehler) + "</span>" : "") + (tagInfo ? ' · <span class="sd-aus">' + esc(tagInfo) + "</span>" : "") + "</div>";
     el.innerHTML = html;
   }
 
