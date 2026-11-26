@@ -396,7 +396,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .ziel-lauf { display: inline-block; white-space: nowrap; }
 </style>
 <script>
-/* Zu lange Texte (Ziele der Abfahrten, Störungsmeldung) wandern langsam hin und her, damit man alles lesen kann.
+/* Zu lange Texte (Ziele der Abfahrten, Störungsmeldung, Schulaufgaben) wandern langsam hin und her, damit man alles lesen kann.
    Jede Zeile läuft für sich. Die Abfahrten werden jede Minute neu gezeichnet; damit der Text dabei nicht
    an den Anfang zurückspringt, merkt sich die Laufschrift den Stand pro Text und macht nahtlos weiter. ES5. */
 (function () {
@@ -417,7 +417,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     try {
       var ruhe = document.getElementById("ruhe");
       if (ruhe && ruhe.style.display === "block") return; // Uhr-Ansicht: nichts bewegen
-      var jetzt = Date.now(), boxen = document.querySelectorAll(".ziel, .st-box"), gezaehlt = {}, benutzt = {};
+      var jetzt = Date.now(), boxen = document.querySelectorAll(".ziel, .st-box, .vp-sa-titel"), gezaehlt = {}, benutzt = {};
       for (var n = 0; n < boxen.length; n++) {
         var z = boxen[n], breite = z.clientWidth;
         var text = (z.textContent || "").replace(/\s+/g, " ");
