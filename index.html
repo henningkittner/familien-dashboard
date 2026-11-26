@@ -918,7 +918,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
-<style>html:-webkit-full-screen { width: 100%; height: 100%; background: #10151c; } :-webkit-full-screen-ancestor { background: #10151c; } html:-webkit-full-screen .kopf { padding-left: 96px !important; padding-top: 36px !important; } html:-webkit-full-screen #kopf-datum { position: relative; top: -8px; } html:-webkit-full-screen .stand { margin-left: -70px; }</style>
+<style>html:-webkit-full-screen { width: 100%; height: 100%; background: #10151c; } :-webkit-full-screen-ancestor { background: #10151c; } html:-webkit-full-screen .kopf, html.vb-rand .kopf { padding-left: 96px !important; padding-top: 36px !important; } html:-webkit-full-screen #kopf-datum, html.vb-rand #kopf-datum { position: relative; top: -8px; } html:-webkit-full-screen .stand, html.vb-rand .stand { margin-left: -70px; }</style>
 <script>
 /* Vollbild: beim Antippen wechselt Safari (iPad ab iPadOS 12) in den Vollbildmodus, ohne Adressleiste.
    Geht nur durch eine Berührung, nicht automatisch. Fällt der Vollbildmodus weg (z. B. neuer Tab vom Kurzbefehl),
@@ -943,6 +943,21 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     gesperrtBis = 0;
     if (window.Einpassen) { window.Einpassen(); setTimeout(window.Einpassen, 400); setTimeout(window.Einpassen, 1200); }
   }
+  // Öffnet der Kurzbefehl die Seite neu, während Safari noch im Vollbild ist, greift :-webkit-full-screen nicht
+  // (die neue Seite ist nicht das Vollbild-Element), Safaris X liegt dann über dem Datum. Deshalb zusätzlich:
+  // füllt die Seite den ganzen Bildschirm (keine Safari-Leiste), Klasse vb-rand setzen.
+  function rand() {
+    var w = screen.width, h = screen.height, quer = window.innerWidth > window.innerHeight;
+    var bildschirmHoehe = quer ? Math.min(w, h) : Math.max(w, h);
+    var voll = istVoll() || window.innerHeight >= bildschirmHoehe - 2;
+    var c = el.className.replace(/\s*\bvb-rand\b/g, "");
+    el.className = voll ? (c + " vb-rand") : c;
+  }
+  rand();
+  window.addEventListener("resize", function () { rand(); setTimeout(rand, 500); }, false);
+  setInterval(rand, 5000);
+  document.addEventListener("fullscreenchange", rand, false);
+  document.addEventListener("webkitfullscreenchange", rand, false);
   document.addEventListener("fullscreenchange", neu, false);
   document.addEventListener("webkitfullscreenchange", neu, false);
 })();
