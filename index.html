@@ -1359,7 +1359,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   var ZEILEN = 6;
   var SA_ANZAHL = 3;
   // Im Stundenplan bei geteilten Fächern („Sm/Sw“) diese Teile pro Kind (Vorname) weglassen.
-  // "alle" gilt jeden Tag, "Mo".."Fr" nur an dem Tag. Endungen wie "_2" werden dabei ignoriert.
+  // "alle" gilt jeden Tag, "Mo".."Fr" nur an dem Tag. Endungen wie "_2" oder "_ILR" fallen immer weg.
   var SP_WEGLASSEN = {
     Anna: { alle: ["Sm", "K", "Eth"] },
     Felix: { alle: ["Sw", "K", "Eth"], Di: ["IT"], Fr: ["EG"] }
@@ -1529,16 +1529,15 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var ende = m[3] ? p2(+m[3]) + ":" + m[4] : (function () { var t = +m[1] * 60 + +m[2] + 45; return p2(Math.floor(t / 60)) + ":" + p2(t % 60); })();
     return p2(+m[1]) + ":" + m[2] + "–" + ende;
   }
-  function spFach(f, name, tag) { // "IT/IT_2" → "IT"; dazu die Teile aus SP_WEGLASSEN weg
-    if (f.indexOf("/") < 0) return f;
+  function spFach(f, name, tag) { // "IT/IT_2" → "IT", "M_ILR" → "M"; dazu die Teile aus SP_WEGLASSEN weg
+    if (f.indexOf("/") < 0) return f.replace(/^([^_]+)_.*$/, "$1");
     var k = SP_WEGLASSEN[String(name).split(" ")[0]] || {};
     var weg = (k.alle || []).concat(k[tag] || []), teile = f.split("/"), rest = [], da = {};
     for (var i = 0; i < teile.length; i++) {
-      var t = teile[i].replace(/^\s+|\s+$/g, "").replace(/_\d+$/, "");
+      var t = teile[i].replace(/^\s+|\s+$/g, "").replace(/^([^_]+)_.*$/, "$1");
       if (t && weg.indexOf(t) < 0 && !da[t]) { da[t] = 1; rest.push(t); }
     }
-    if (!rest.length || rest.length === teile.length) return f;
-    return rest.join("/");
+    return rest.length ? rest.join("/") : f;
   }
   function spBlock(k) {
     var sp = k.stundenplan;
