@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anker-Verbindungstest</title>
+<style>
+  :root { --bg: #11151c; --karte: #1b2433; --text: #fff; --leise: #a8b3c5; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 18px/1.45 -apple-system, system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  p { color: var(--leise); }
+  .zeile { background: var(--karte); border-radius: 14px; padding: 12px 14px; margin: 10px 0; }
+  .ok { color: #30d158; font-weight: 700; } .nein { color: #ff5d6c; font-weight: 700; } .warte { color: #ffc933; font-weight: 700; }
+  code { font: 13px/1.35 ui-monospace, Menlo, monospace; color: var(--leise); word-break: break-all; display: block; margin-top: 4px; }
+  #fazit { font-size: 22px; font-weight: 700; margin-top: 18px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Anker-Verbindungstest</h1>
+  <p>Diese Seite prüft nur, ob Safari die Anker-Cloud direkt erreichen darf. Sie schickt keine Zugangsdaten. Einfach warten, bis unten ein Ergebnis steht, und ein Bildschirmfoto schicken.</p>
+  <div id="liste"></div>
+  <div id="fazit" class="warte">Teste …</div>
+</main>
+<script>
+var BASIS = "https://ankerpower-api-eu.anker.com";
+var TESTS = [
+  { name: "Einfache Anfrage", pfad: "/power_service/v1/site/get_site_list", kopf: { "Content-Type": "text/plain" } },
+  { name: "Anfrage wie die Anker-App", pfad: "/power_service/v1/site/get_site_list",
+    kopf: { "Content-Type": "application/json", "Country": "DE", "Timezone": "GMT+01:00", "App-Name": "anker_power", "Os-Type": "android", "Model-Type": "DESKTOP", "X-Auth-Token": "test", "gtoken": "test" } }
+];
+function zeile(t) { var d = document.createElement("div"); d.className = "zeile"; d.innerHTML = t; document.getElementById("liste").appendChild(d); return d; }
+function esc(s) { return String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+var ergebnisse = [];
+function lauf(i) {
+  if (i >= TESTS.length) {
+    var f = document.getElementById("fazit");
+    if (ergebnisse[1]) { f.className = "ok"; f.textContent = "Ergebnis: Direkter Zugriff geht ✓"; }
+    else if (ergebnisse[0]) { f.className = "warte"; f.textContent = "Ergebnis: nur teilweise"; }
+    else { f.className = "nein"; f.textContent = "Ergebnis: Safari darf nicht direkt zugreifen ✗"; }
+    return;
+  }
+  var t = TESTS[i], z = zeile(esc(t.name) + ': <span class="warte">läuft …</span>');
+  var fertig = false;
+  var uhr = setTimeout(function () { if (!fertig) { fertig = true; ergebnisse[i] = false; z.innerHTML = esc(t.name) + ': <span class="nein">keine Antwort (20 s)</span>'; lauf(i + 1); } }, 20000);
+  fetch(BASIS + t.pfad, { method: "POST", headers: t.kopf, body: "{}", mode: "cors", credentials: "omit" })
+    .then(function (r) { return r.text().then(function (x) { return [r.status, x]; }); })
+    .then(function (a) {
+      if (fertig) return; fertig = true; clearTimeout(uhr); ergebnisse[i] = true;
+      z.innerHTML = esc(t.name) + ': <span class="ok">erreichbar (Status ' + a[0] + ')</span><code>' + esc(a[1].slice(0, 160)) + '</code>';
+      lauf(i + 1);
+    }, function (e) {
+      if (fertig) return; fertig = true; clearTimeout(uhr); ergebnisse[i] = false;
+      z.innerHTML = esc(t.name) + ': <span class="nein">blockiert</span><code>' + esc(e && e.message || e) + '</code>';
+      lauf(i + 1);
+    });
+}
+lauf(0);
+</script>
+</body>
+</html>
