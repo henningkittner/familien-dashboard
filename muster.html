@@ -1,5 +1,5 @@
 <!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Muster für Teil 4</title>
+<title>Muster für den Kurzbefehl</title>
 <style>
 body{font-family:-apple-system,Helvetica,sans-serif;background:#10151c;color:#f2f4f7;margin:0;padding:20px;font-size:18px}
 h1{font-size:26px;margin:0 0 6px} p{color:#a9b2bd;margin:0 0 18px}
@@ -57,9 +57,23 @@ button.ok{background:#30a14e}
 <div class="t">Vertretungsplan<span class=sp>␣</span>für<span class=sp>␣</span></div>
 <button onclick="kopiere(10,this)">Kopieren</button></div>
 
+<h1 style="margin-top:28px">Muster für Teil 8 (Schulaufgaben)</h1>
+<div class="k"><div class="kopf"><span class="nr">S1</span>URL – Seite mit den Schulaufgaben</div>
+<div class="t">https://wkrstauf.eltern-portal.org/service/termine/liste/schulaufgaben</div>
+<button onclick="kopiere(14,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">S2</span>Name konfigurieren – Name</div>
+<div class="t">sa.txt</div>
+<button onclick="kopiere(15,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">S3</span>Text abgleichen – Muster</div>
+<div class="t">&lt;tr[\s\S]*?&lt;/tr&gt;</div>
+<button onclick="kopiere(16,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">S4</span>Trenner im Text (eigene Zeile)</div>
+<div class="t">@@SA@@</div>
+<button onclick="kopiere(17,this)">Kopieren</button></div>
+
 <textarea id="puffer" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px" readonly></textarea>
 <script>
-var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "vp_", ".txt", "(?m)^\\d{1,2}\\. ·", "Vertretungsplan für ", "\\s*·?\\s*&nbsp;", "(\\d{2}\\.\\d{2}\\.\\d{4})(?=\\n[A-Z][a-z]\\.,|\\s*$)", "$1\nkeine Änderungen"];
+var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "vp_", ".txt", "(?m)^\\d{1,2}\\. ·", "Vertretungsplan für ", "\\s*·?\\s*&nbsp;", "(\\d{2}\\.\\d{2}\\.\\d{4})(?=\\n[A-Z][a-z]\\.,|\\s*$)", "$1\nkeine Änderungen", "https://wkrstauf.eltern-portal.org/service/termine/liste/schulaufgaben", "sa.txt", "<tr[\\s\\S]*?</tr>", "@@SA@@"];
 function fertig(knopf, ok) {
   knopf.innerHTML = ok ? "Kopiert ✓" : "Bitte Text lange drücken";
   knopf.className = ok ? "ok" : "";
