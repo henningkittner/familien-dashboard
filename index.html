@@ -521,6 +521,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .wd-unten .wd-tage-box { -webkit-flex: 1.25; flex: 1.25; min-width: 0; }
   .wd-radar-box { -webkit-flex: 1; flex: 1; margin-left: 12px; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; min-width: 0; }
   #wd-radar { -webkit-flex: 1; flex: 1; position: relative; overflow: hidden; border-radius: 10px; background: #0e131b; min-height: 220px; }
+  #wd-radar .wd-radar-kachel { -webkit-filter: invert(1) hue-rotate(180deg) brightness(.75) contrast(.9) saturate(.4); filter: invert(1) hue-rotate(180deg) brightness(.75) contrast(.9) saturate(.4); } /* helle OSM-Karte dunkel einfärben */
   #wd-radar .wd-radar-bild { position: absolute; left: 0; top: 0; }
   #wd-radar .wd-radar-haus { position: absolute; width: 8px; height: 8px; border: 2px solid #fff; border-radius: 50%; background: #ff5b4a; box-shadow: 0 0 0 2px rgba(0,0,0,.4); }
   #wd-radar .wd-radar-zeit { position: absolute; left: 8px; top: 6px; font-size: 15px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px #000; }
@@ -658,7 +659,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 </script>
 <script>
 /* Regenradar für die Wetter-Detailansicht: DWD-Radar (Bright Sky /radar, 5-Minuten-Schritte, ca. 1 Std zurück
-   und 1–2 Std Vorhersage) als Schleife über einer dunklen Karte (CARTO/OpenStreetMap) rund um Unterhaching.
+   und 1–2 Std Vorhersage) als Schleife über einer abgedunkelten OpenStreetMap-Karte (ohne Schlüssel; CARTO verlangte einen API-Key) rund um Unterhaching.
    Läuft nur, solange die Detailansicht offen ist. ES5, per setInterval (Keyframes laufen auf dem iPad nicht). */
 (function () {
   var LAT = 48.066, LON = 11.616, ZOOM = 10;
@@ -677,10 +678,10 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var m = px(LON, LAT), x0 = m.x - b / 2, y0 = m.y - h / 2, html = "";
     for (var tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + b) / 256); tx++)
       for (var ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + h) / 256); ty++)
-        html += '<img src="https://basemaps.cartocdn.com/dark_all/' + ZOOM + "/" + tx + "/" + ty + '.png" style="position:absolute;left:' + Math.round(tx * 256 - x0) + "px;top:" + Math.round(ty * 256 - y0) + 'px;width:256px;height:256px" alt="" onerror="this.style.display=\'none\'">';
+        html += '<img class="wd-radar-kachel" src="https://tile.openstreetmap.org/' + ZOOM + "/" + tx + "/" + ty + '.png" style="position:absolute;left:' + Math.round(tx * 256 - x0) + "px;top:" + Math.round(ty * 256 - y0) + 'px;width:256px;height:256px" alt="" onerror="this.style.display=\'none\'">';
     html += '<canvas class="wd-radar-bild" width="' + b + '" height="' + h + '"></canvas>' +
       '<div class="wd-radar-haus" style="left:' + Math.round(b / 2 - 6) + "px;top:" + Math.round(h / 2 - 6) + 'px"></div>' +
-      '<div class="wd-radar-zeit"></div><div class="wd-radar-hinweis">© OpenStreetMap · © CARTO · Radar: DWD</div>';
+      '<div class="wd-radar-zeit"></div><div class="wd-radar-hinweis">© OpenStreetMap-Mitwirkende · Radar: DWD</div>';
     el.innerHTML = html;
     el._x0 = x0; el._y0 = y0;
     return true;
