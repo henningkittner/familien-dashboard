@@ -1516,6 +1516,13 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     for (var i = 0; i < tab.length && i < 4; i++) { var z = tab[i].querySelector("tr"); teile.push(tab[i].querySelectorAll("tr").length + " Zeilen: " + txt(z).slice(0, 60)); }
     return String(html).length + " Zeichen, " + tab.length + " Tabellen" + (teile.length ? " · " + teile.join(" · ") : "");
   }
+  function spZeit(z) { // "07:50 - 08:35" → "07:50–08:35"; nur Beginn → Ende = +45 Min.
+    var m = String(z).match(/(\d{1,2}):(\d{2})(?:\D+(\d{1,2}):(\d{2}))?/);
+    if (!m) return z;
+    var p2 = function (n) { return (n < 10 ? "0" : "") + n; };
+    var ende = m[3] ? p2(+m[3]) + ":" + m[4] : (function () { var t = +m[1] * 60 + +m[2] + 45; return p2(Math.floor(t / 60)) + ":" + p2(t % 60); })();
+    return p2(+m[1]) + ":" + m[2] + "–" + ende;
+  }
   function spBlock(k) {
     var sp = k.stundenplan;
     if (!sp) return '<div class="vp-sp"><div class="vp-tagname">Stundenplan</div><div class="vp-sa-keine">' +
@@ -1525,10 +1532,10 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     html += "</tr>";
     for (var s = 0; s < sp.stunden.length; s++) {
       var st = sp.stunden[s];
-      html += '<tr><td class="vp-sp-nr">' + esc(st.nr) + (st.zeit ? "<small>" + esc(st.zeit.split(" ")[0]) + "</small>" : "") + "</td>";
+      html += '<tr><td class="vp-sp-nr">' + esc(st.nr) + (st.zeit ? "<small>" + esc(spZeit(st.zeit)) + "</small>" : "") + "</td>";
       for (var t = 0; t < sp.tage.length; t++) {
         var z = st.zellen[t] || [];
-        html += "<td" + (sp.tage[t] === heuteWt ? ' class="vp-sp-heute"' : "") + ">" + (z.length ? "<b>" + esc(z[0]) + "</b>" + (z.length > 1 ? "<small>" + esc(z.slice(1).join(" ")) + "</small>" : "") : "") + "</td>";
+        html += "<td" + (sp.tage[t] === heuteWt ? ' class="vp-sp-heute"' : "") + ">" + (z.length ? "<b>" + esc(z[0]) + "</b>" : "") + "</td>";
       }
       html += "</tr>";
     }
@@ -1651,11 +1658,11 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     ".vp-sa-block{margin-top:24px}.vp-sa{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:baseline;align-items:baseline;font-size:17px;padding:2px 0;color:#dfe5ec}" +
     ".vp-sa-dat{width:86px;-webkit-flex-shrink:0;flex-shrink:0;color:#9aa6b5;font-size:15px}.vp-sa-titel{-webkit-flex:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
     ".vp-sa-wann{-webkit-flex-shrink:0;flex-shrink:0;margin-left:8px;font-size:14px;color:#9aa6b5}.vp-sa-bald .vp-sa-wann{color:#ffc53d;font-weight:700}.vp-sa-keine{color:#9aa6b5;font-size:15px}" +
-    ".vp-sp{display:none;margin-top:18px}body.fokus-vp .vp-sp{display:block}body.fokus-vp .vp-leer-zeile{display:none}" +
+    ".vp-sp{display:none;margin-top:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px 8px}body.fokus-vp .vp-sp{display:block}body.fokus-vp .vp-leer-zeile{display:none}" +
     ".vp-sp table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}.vp-sp th{font-size:13px;color:#9aa6b5;font-weight:600;padding:2px 3px 4px;text-align:left}" +
-    ".vp-sp td{padding:3px;border-top:1px solid rgba(255,255,255,.07);vertical-align:top;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}" +
+    ".vp-sp td{padding:5px 3px;border-top:1px solid rgba(255,255,255,.07);vertical-align:top;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}" +
     ".vp-sp td b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis}.vp-sp td small{display:block;font-size:11px;color:#9aa6b5;overflow:hidden;text-overflow:ellipsis}" +
-    ".vp-sp th:first-child,.vp-sp .vp-sp-nr{width:42px}.vp-sp .vp-sp-nr{font-weight:700;color:#c3bad0}" +
+    ".vp-sp th:first-child,.vp-sp .vp-sp-nr{width:96px}.vp-sp .vp-sp-nr small{display:inline;font-size:12px;margin-left:6px;font-weight:400}.vp-sp .vp-sp-nr{font-weight:700;color:#c3bad0}" +
     ".vp-sp .vp-sp-heute{background:rgba(196,139,255,.14)}.vp-sp th.vp-sp-heute{color:#e6d4ff;border-radius:6px 6px 0 0}" +
     ".vp-leer{font-size:18px;color:#9aa6b5;padding:12px 0}.vp-fuss{font-size:13px;color:#6d7887;margin-top:4px}.vp-fuss.vp-alt{color:#ff8f99}";
 
