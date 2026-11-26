@@ -882,8 +882,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     for (var j = start; j < Math.min(start + 12, h.time.length); j++) {
       var p = h.precipitation_probability ? h.precipitation_probability[j] : null;
       html += '<div class="wd-stunde"><div class="wd-s-zeit">' + (j === start ? "Jetzt" : parseInt(h.time[j].substr(11, 2), 10) + " Uhr") + "</div>" +
-        symbolG(h.weather_code[j], h.is_day[j], 40) + '<div class="wd-s-regen">' + (p != null && p >= 20 ? p + " %" : "&nbsp;") + "</div>" +
-        '<div class="wd-s-temp">' + r(h.temperature_2m[j]) + "</div></div>";
+        symbolG(j === start ? c.weather_code : h.weather_code[j], h.is_day[j], 40) + '<div class="wd-s-regen">' + (p != null && p >= 20 ? p + " %" : "&nbsp;") + "</div>" +
+        '<div class="wd-s-temp">' + r(j === start ? c.temperature_2m : h.temperature_2m[j]) + "</div></div>";
     }
     html += "</div></div>";
     // 7 Tage mit Temperatur-Balken
@@ -898,19 +898,51 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
         '<div class="wd-t-regen">' + (pm != null && pm >= 20 ? pm + " %" : "") + '</div><div class="wd-t-min">' + r(t.temperature_2m_min[m]) +
         '</div><div class="wd-balken"><div style="left:' + links + "%;width:" + Math.max(breite, 4) + '%"></div></div><div class="wd-t-max">' + r(t.temperature_2m_max[m]) + "</div></div>";
     }
-    html += '</div><div class="wd-quelle">Daten: Open-Meteo · Antippen für Übersicht</div>';
+    html += '</div><div class="wd-quelle">' + (d.gemessen ? "Jetzt: DWD-Messung Oberhaching (Bright Sky) · Vorhersage: Open-Meteo" : "Daten: Open-Meteo") + " · Antippen für Übersicht</div>";
     el.innerHTML = html;
     if (window.WetterAnimLaufen) window.WetterAnimLaufen(el);
     if (window.Einpassen && /fokus-wetter/.test(document.body.className)) window.Einpassen();
   }
   function zwei(n) { return (n < 10 ? "0" : "") + n; }
-  function laden() {
+  // „Jetzt“ aus echten DWD-Messwerten (Bright Sky, Station Oberhaching-Laufzorn, Lücken mit München-Stadt).
+  // Open-Meteo liefert nur Modellwerte und meldete z. B. Schnee, obwohl es trocken war (Mina 26.11.). Vorhersage bleibt Open-Meteo.
+  var URL_BS = "https://api.brightsky.dev/current_weather?lat=48.066&lon=11.616";
+  var om = null, bs = null;
+  function bsCode(w) {
+    var i = w.icon || "", c = w.condition || "";
+    if (c === "thunderstorm" || i === "thunderstorm") return 95;
+    if (c === "snow" || i === "snow") return 73;
+    if (c === "rain" || c === "sleet" || c === "hail" || i === "rain" || i === "sleet" || i === "hail") return (w.precipitation_60 != null && w.precipitation_60 < 0.3) ? 53 : 63;
+    if (c === "fog" || i === "fog") return 45;
+    if (/^clear/.test(i)) return 0;
+    if (/^partly-cloudy/.test(i)) return 2;
+    if (i === "cloudy") return 3;
+    return null; // z. B. "wind": Modellwert behalten
+  }
+  function mischen() {
+    if (!om) return;
+    var d = JSON.parse(JSON.stringify(om)), w = bs, alt = Date.now() - (w && w.timestamp ? Date.parse(w.timestamp) : 0);
+    if (w && alt < 2 * 3600 * 1000) { // nur frische Messwerte (höchstens 2 Std alt)
+      var code = bsCode(w);
+      if (code != null) d.current.weather_code = code;
+      if (w.temperature != null) d.current.temperature_2m = w.temperature;
+      if (w.relative_humidity != null) d.current.relative_humidity_2m = w.relative_humidity;
+      if (w.wind_speed_10 != null) d.current.wind_speed_10m = w.wind_speed_10;
+      d.gemessen = true;
+    }
+    zeichnen(d);
+  }
+  function holen(url, fertig) {
     var x = new XMLHttpRequest();
-    x.open("GET", URL_W, true);
+    x.open("GET", url, true);
     x.onreadystatechange = function () {
-      if (x.readyState === 4 && x.status === 200) { try { zeichnen(JSON.parse(x.responseText)); } catch (e) {} }
+      if (x.readyState === 4 && x.status === 200) { try { fertig(JSON.parse(x.responseText)); } catch (e) {} }
     };
     x.send();
+  }
+  function laden() {
+    holen(URL_W, function (d) { om = d; mischen(); });
+    holen(URL_BS, function (d) { if (d && d.weather) { bs = d.weather; mischen(); } });
   }
   window.WetterTest = { symbol: symbol, text: text };
   laden();
