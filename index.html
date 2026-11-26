@@ -527,6 +527,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   #wd-radar .wd-radar-zeit { position: absolute; left: 8px; top: 6px; font-size: 15px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px #000; }
   #wd-radar .wd-radar-zeit span { font-size: 11px; font-weight: 600; color: #ffd84d; margin-left: 4px; text-transform: uppercase; letter-spacing: .4px; }
   #wd-radar .wd-radar-hinweis { position: absolute; right: 6px; bottom: 4px; font-size: 9px; color: rgba(255,255,255,.45); }
+  #wd-radar .wd-radar-status { position: absolute; left: 10px; right: 10px; bottom: 22px; text-align: center; font-size: 13px; font-weight: 500; color: #dfe6f0; background: rgba(14,19,27,.75); border-radius: 8px; padding: 5px 8px; }
   #wd-radar .wd-radar-fehler { padding: 30px 10px; text-align: center; color: #8f9bb0; font-size: 14px; }
   .wd-quelle { font-size: 12px; color: #5d6a7e; padding: 0 4px; }
 </style>
@@ -662,9 +663,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
    und 1–2 Std Vorhersage) als Schleife über einer abgedunkelten OpenStreetMap-Karte (ohne Schlüssel; CARTO verlangte einen API-Key) rund um Unterhaching.
    Läuft nur, solange die Detailansicht offen ist. ES5, per setInterval (Keyframes laufen auf dem iPad nicht). */
 (function () {
-  var LAT = 48.066, LON = 11.616, ZOOM = 10;
-  var URL_R = "https://api.brightsky.dev/radar?lat=" + LAT + "&lon=" + LON + "&distance=30000&format=plain";
-  var daten = null, geladen = 0, bild = 0, timer = null, el = null, pause = 0, laedt = false;
+  var LAT = 48.066, LON = 11.616, ZOOM = 11;
+  var URL_R = "https://api.brightsky.dev/radar?lat=" + LAT + "&lon=" + LON + "&distance=16000&format=plain";
+  var statusText = "Radar wird geladen …", daten = null, geladen = 0, bild = 0, timer = null, el = null, pause = 0, laedt = false;
   // Farbskala in mm/h (Wert × 0,12, weil precipitation_5 = 0,01 mm je 5 Min)
   var STUFEN = [[0.1, "rgba(120,190,255,.45)"], [0.5, "rgba(60,140,255,.75)"], [2, "rgba(40,200,110,.85)"], [5, "rgba(255,220,60,.9)"], [10, "rgba(255,150,40,.95)"], [25, "rgba(255,60,60,.95)"]];
   function farbe(v) { var mm = v * 0.12, f = null; for (var i = 0; i < STUFEN.length; i++) if (mm >= STUFEN[i][0]) f = STUFEN[i][1]; return f; }
@@ -681,7 +682,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
         html += '<img class="wd-radar-kachel" src="https://tile.openstreetmap.org/' + ZOOM + "/" + tx + "/" + ty + '.png" style="position:absolute;left:' + Math.round(tx * 256 - x0) + "px;top:" + Math.round(ty * 256 - y0) + 'px;width:256px;height:256px" alt="" onerror="this.style.display=\'none\'">';
     html += '<canvas class="wd-radar-bild" width="' + b + '" height="' + h + '"></canvas>' +
       '<div class="wd-radar-haus" style="left:' + Math.round(b / 2 - 6) + "px;top:" + Math.round(h / 2 - 6) + 'px"></div>' +
-      '<div class="wd-radar-zeit"></div><div class="wd-radar-hinweis">© OpenStreetMap-Mitwirkende · Radar: DWD</div>';
+      '<div class="wd-radar-zeit"></div><div class="wd-radar-status">' + statusText + '</div><div class="wd-radar-hinweis">© OpenStreetMap-Mitwirkende · Radar: DWD</div>';
     el.innerHTML = html;
     el._x0 = x0; el._y0 = y0;
     return true;
@@ -705,6 +706,11 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var z = el.querySelector(".wd-radar-zeit");
     if (z) z.innerHTML = d.getHours() + ":" + zwei(d.getMinutes()) + (zukunft ? ' <span>Vorhersage</span>' : "");
   }
+  function status(t) {
+    statusText = t;
+    var s = el && el.querySelector(".wd-radar-status");
+    if (s) { s.innerHTML = t; s.style.display = t ? "block" : "none"; }
+  }
   function laden() {
     if (laedt) return; laedt = true;
     var x = new XMLHttpRequest();
@@ -716,9 +722,13 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
         try {
           var d = JSON.parse(x.responseText), jetzt = Date.now(), r = [];
           for (var i = 0; i < d.radar.length; i++) if (Date.parse(d.radar[i].timestamp) >= jetzt - 60 * 60000) r.push(d.radar[i]);
-          d.radar = r; daten = d; geladen = jetzt; bild = 0; zeichnen();
+          d.radar = r; daten = d; geladen = jetzt; bild = 0;
+          var max = 0;
+          for (var k = 0; k < r.length; k++) { var g = r[k].precipitation_5; for (var a = 0; a < g.length; a++) for (var b = 0; b < g[a].length; b++) if (g[a][b] > max) max = g[a][b]; }
+          status(max * 0.12 >= 0.1 ? "" : "Gerade kein Regen oder Schnee in der Gegend – das Radar zeigt nur Niederschlag, keine Wolken.");
+          zeichnen();
         } catch (e) {}
-      } else if (el && !daten) el.innerHTML = '<div class="wd-radar-fehler">Radar gerade nicht erreichbar</div>';
+      } else if (!daten) status("Radardaten gerade nicht erreichbar");
     };
     x.send();
   }
