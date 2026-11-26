@@ -667,7 +667,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   var URL_R = "https://api.brightsky.dev/radar?lat=" + LAT + "&lon=" + LON + "&distance=16000&format=plain";
   var statusText = "Radar wird geladen …", daten = null, geladen = 0, bild = 0, timer = null, el = null, pause = 0, laedt = false;
   // Farbskala in mm/h (Wert × 0,12, weil precipitation_5 = 0,01 mm je 5 Min)
-  var STUFEN = [[0.1, "rgba(120,190,255,.45)"], [0.5, "rgba(60,140,255,.75)"], [2, "rgba(40,200,110,.85)"], [5, "rgba(255,220,60,.9)"], [10, "rgba(255,150,40,.95)"], [25, "rgba(255,60,60,.95)"]];
+  var STUFEN = [[0.1, "rgba(150,205,255,.30)"], [0.3, "rgba(110,175,255,.50)"], [0.6, "rgba(70,135,255,.70)"], [1.5, "rgba(40,190,110,.80)"], [4, "rgba(255,220,60,.90)"], [10, "rgba(255,150,40,.95)"], [25, "rgba(255,60,60,.95)"]]; // feine Stufen, damit auch leichter Schnee sichtbar ist
   function farbe(v) { var mm = v * 0.12, f = null; for (var i = 0; i < STUFEN.length; i++) if (mm >= STUFEN[i][0]) f = STUFEN[i][1]; return f; }
   function px(lon, lat) { // Web-Mercator-Pixel bei ZOOM
     var n = 256 * Math.pow(2, ZOOM), s = Math.sin(lat * Math.PI / 180);
@@ -695,7 +695,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var oc = off.getContext("2d");
     for (var i = 0; i < zeilen; i++) for (var j = 0; j < spalten; j++) { var f = farbe(g[i][j]); if (f) { oc.fillStyle = f; oc.fillRect(j, i, 1, 1); } }
     // Ecken der Radarzellen (Mittelpunkte): oben links, unten links, unten rechts, oben rechts
-    var k = daten.geometry.coordinates[0], tl = px(k[0][0], k[0][1]), bl = px(k[1][0], k[1][1]), tr = px(k[3][0], k[3][1]);
+    var k = daten.geometry.coordinates; if (typeof k[0][0] !== "number") k = k[0]; // Bright Sky liefert die 4 Ecken direkt (nicht verschachtelt)
+    var tl = px(k[0][0], k[0][1]), bl = px(k[1][0], k[1][1]), tr = px(k[3][0], k[3][1]);
     var dx = { x: (tr.x - tl.x) / (spalten - 1), y: (tr.y - tl.y) / (spalten - 1) }, dy = { x: (bl.x - tl.x) / (zeilen - 1), y: (bl.y - tl.y) / (zeilen - 1) };
     var c = cv.getContext("2d");
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height);
