@@ -963,7 +963,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
-<div id="ruhe" class="h-wolken"><div id="aod-himmel"><div class="hs-sonne"></div><div class="hs-sterne"></div><div class="hw hw1"></div><div class="hw hw2"></div><div class="hw hw3"></div><div class="hw hw4"></div><div class="hw hw5"></div><div class="hn hn1"></div><div class="hn hn2"></div><div class="hs-blitz"></div></div><div id="aod"><div id="aod-zeit"></div><div id="aod-datum"></div><div id="aod-ort">Unterhaching</div><div id="aod-wtemp"></div><div id="aod-wtext"></div><div id="aod-whl"></div><div id="aod-entfall"></div></div></div>
+<div id="ruhe" class="h-wolken"><div id="aod-himmel"><div class="hs-sonne"></div><div class="hs-sterne"></div><div class="hw hw1"></div><div class="hw hw2"></div><div class="hw hw3"></div><div class="hw hw4"></div><div class="hw hw5"></div><div class="hn hn1"></div><div class="hn hn2"></div><canvas id="aod-schnee"></canvas><div class="hs-blitz"></div></div><div id="aod"><div id="aod-zeit"></div><div id="aod-datum"></div><div id="aod-ort">Unterhaching</div><div id="aod-wtemp"></div><div id="aod-wtext"></div><div id="aod-whl"></div><div id="aod-entfall"></div></div></div>
 <style>
   /* Uhr-Ansicht im Stil eines Wetter-App-Kopfs: dunkler, wetterabhängiger Himmel, gedimmt */
   #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; overflow: hidden; }
@@ -994,7 +994,10 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .hw5 { top: 72%; width: 1300px; height: 400px; }
   /* Regen und Schnee: gekachelte Ebene, die nach unten wandert */
   .hn { left: 0; right: 0; top: -240px; bottom: 0; -webkit-animation: hn-fall linear infinite; animation: hn-fall linear infinite; }
-  .h-regen-tag .hn, .h-regen-nacht .hn, .h-gewitter-tag .hn, .h-gewitter-nacht .hn, .h-schnee-tag .hn, .h-schnee-nacht .hn { display: block; }
+  .h-regen-tag .hn, .h-regen-nacht .hn, .h-gewitter-tag .hn, .h-gewitter-nacht .hn { display: block; }
+  /* Schnee: einzelne Flocken auf einer Leinwand, per ruhe.js bewegt (verschiedene Größen, Tempo, Taumeln) */
+  #aod-schnee { display: none; left: 0; top: 0; width: 100%; height: 100%; }
+  .h-schnee-tag #aod-schnee, .h-schnee-nacht #aod-schnee { display: block; }
   .h-regen-tag .hn, .h-regen-nacht .hn, .h-gewitter-tag .hn, .h-gewitter-nacht .hn { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cg stroke='%23b8c6d8' stroke-width='1.3' stroke-linecap='round'%3E%3Cpath d='M20 10l-4 22M90 60l-4 22M160 25l-4 22M215 110l-4 22M55 150l-4 22M130 185l-4 22M195 205l-4 22M10 205l-4 22'/%3E%3C/g%3E%3C/svg%3E"); }
   .hn1 { -webkit-animation-duration: .9s; animation-duration: .9s; }
   .hn2 { opacity: .55; background-position: 120px 90px; -webkit-animation-duration: 1.3s; animation-duration: 1.3s; }
@@ -1108,9 +1111,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (soll && !ist) {
       if (window.Fokus && /fokus-/.test(document.body.className)) window.Fokus(null);
       ruhe.style.display = "block"; window.scrollTo(0, 0);
-      wolkenLaufen(true);
+      wolkenLaufen(true); schneeLaufen(true);
     } else if (!soll && ist) {
-      ruhe.style.display = "none"; wolkenLaufen(false);
+      ruhe.style.display = "none"; wolkenLaufen(false); schneeLaufen(false);
       if (window.Einpassen) window.Einpassen();
     }
   }
@@ -1130,6 +1133,42 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   function wolkenLaufen(an) {
     if (an && !wolkenTimer) { wolkenSchritt(true); wolkenTimer = setInterval(function () { wolkenSchritt(false); }, 1000); }
     if (!an && wolkenTimer) { clearInterval(wolkenTimer); wolkenTimer = null; }
+  }
+  // Schnee: einzelne Flocken mit eigener Größe, Fallgeschwindigkeit und eigenem Taumeln, dazu leichte Böen.
+  // Nahe Flocken sind größer, heller und schneller als ferne. Läuft per setInterval (Keyframes standen auf Minas iPad still).
+  var schneeEl = document.getElementById("aod-schnee"), schneeCtx = null, flocken = [], schneeTimer = null, schneeB = 0, schneeH = 0, schneeT = 0;
+  function flocke(oben) {
+    var z = Math.pow(Math.random(), 1.6); // mehr ferne als nahe Flocken
+    return { x: Math.random() * schneeB, y: oben ? -10 - Math.random() * 80 : Math.random() * schneeH, z: z,
+      r: 0.8 + z * 3.4 + Math.random() * 0.6, vy: 14 + z * 52 + Math.random() * 14, amp: 4 + Math.random() * 20 + z * 10,
+      fr: 0.25 + Math.random() * 1.1, ph: Math.random() * 6.3, a: 0.3 + z * 0.6 + Math.random() * 0.1, dx: 0 };
+  }
+  function schneeSchritt() {
+    if (!schneeCtx || !/h-schnee/.test(ruhe.className)) return;
+    var b = schneeEl.offsetWidth, h = schneeEl.offsetHeight;
+    if (b !== schneeB || h !== schneeH) {
+      schneeEl.width = schneeB = b; schneeEl.height = schneeH = h; flocken = [];
+      var n = Math.round(b * h / 9000); for (var k = 0; k < n; k++) flocken.push(flocke(false));
+    }
+    var jetzt = Date.now() / 1000, dt = schneeT ? Math.min(0.2, jetzt - schneeT) : 0.04; schneeT = jetzt;
+    var wind = Math.sin(jetzt * 0.07) * 10 + Math.sin(jetzt * 0.29 + 1) * 5; // langsame Böen
+    schneeCtx.clearRect(0, 0, b, h);
+    schneeCtx.fillStyle = "#fff";
+    for (var i = 0; i < flocken.length; i++) {
+      var f = flocken[i];
+      f.y += f.vy * dt; f.dx += wind * (0.4 + f.z) * dt;
+      var x = f.x + f.dx + Math.sin(jetzt * f.fr + f.ph) * f.amp;
+      if (f.y > h + 8 || x < -40 || x > b + 40) { flocken[i] = flocke(true); continue; }
+      schneeCtx.globalAlpha = f.a;
+      schneeCtx.beginPath(); schneeCtx.arc(x, f.y, f.r, 0, 6.2832); schneeCtx.fill();
+    }
+    schneeCtx.globalAlpha = 1;
+  }
+  function schneeLaufen(an) {
+    if (!schneeEl || !schneeEl.getContext) return;
+    if (!schneeCtx) schneeCtx = schneeEl.getContext("2d");
+    if (an && !schneeTimer) { schneeT = 0; schneeSchritt(); schneeTimer = setInterval(schneeSchritt, 40); }
+    if (!an && schneeTimer) { clearInterval(schneeTimer); schneeTimer = null; }
   }
   // Aufwachen nur per Klick auf die Uhr-Ansicht selbst: Würde sie schon bei touchstart verschwinden,
   // landete der folgende Klick auf der Kachel darunter und öffnete eine Detailansicht (Mina 25.11.).
