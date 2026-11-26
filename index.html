@@ -733,12 +733,21 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     for (var m = 0; m < a.length; m++) r.push(a[m] + (b[m] - a[m]) * f);
     return r;
   }
+  var gruppen = {}; // je Behälter (Übersichtskachel, Detailansicht) eine Liste
   function schritt() {
-    if (!/fokus-wetter/.test(document.body.className)) return; // nur zeichnen, wenn die Ansicht offen ist
+    var ruhe = document.getElementById("ruhe");
+    if (ruhe && ruhe.style.display === "block") return; // Uhr-Ansicht deckt alles ab
     var t = (new Date().getTime() - t0) / 1000;
-    for (var i = 0; i < laeufer.length; i++) {
-      var l = laeufer[i], tt = t - l.begin;
-      if (tt < 0) continue;
+    for (var id in gruppen) {
+      var g = gruppen[id];
+      if (!g.el.offsetWidth) continue; // ausgeblendet: nicht zeichnen
+      for (var i = 0; i < g.liste.length; i++) schrittEins(g.liste[i], t);
+    }
+  }
+  function schrittEins(l, t) {
+    {
+      var tt = t - l.begin;
+      if (tt < 0) return;
       var w = wert(l, (tt % l.dur) / l.dur);
       if (l.art === "translate") l.el.setAttribute("transform", "translate(" + w[0].toFixed(2) + " " + (w[1] || 0).toFixed(2) + ")");
       else if (l.art === "rotate") l.el.setAttribute("transform", "rotate(" + w[0].toFixed(1) + " " + (w[1] || 0) + " " + (w[2] || 0) + ")");
@@ -746,7 +755,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     }
   }
   window.WetterAnimLaufen = function (behaelter) {
-    laeufer = [];
+    var laeufer = [];
+    gruppen[behaelter.id] = { el: behaelter, liste: laeufer };
     var an = behaelter.querySelectorAll("animate, animateTransform"), liste = [];
     for (var i = 0; i < an.length; i++) liste.push(an[i]);
     for (var j = 0; j < liste.length; j++) {
@@ -851,9 +861,10 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var c = d.current.weather_code, tag = d.current.is_day, t = d.daily;
     window.WetterJetzt = { code: c, tag: !!tag, temp: d.current.temperature_2m, text: text(c, tag), nass: (c >= 51 && c <= 67) || (c >= 71 && c <= 86) || c >= 95, schnee: (c >= 71 && c <= 77) || c === 85 || c === 86, hoch: t.temperature_2m_max[0], tief: t.temperature_2m_min[0] }; // für die Uhr-Ansicht
     var regen = t.precipitation_probability_max ? t.precipitation_probability_max[0] : null;
-    el.innerHTML = '<div class="w-symbol">' + symbol(c, tag) + '</div><div class="w-werte"><div class="w-temp">' + r(d.current.temperature_2m) +
+    el.innerHTML = '<div class="w-symbol">' + symbolG(c, tag, GROESSE) + '</div><div class="w-werte"><div class="w-temp">' + r(d.current.temperature_2m) +
       '</div><div class="w-klein">' + text(c, tag) + '</div><div class="w-klein">H: ' + r(t.temperature_2m_max[0]) + " &nbsp;T: " + r(t.temperature_2m_min[0]) +
       (regen != null && regen >= 20 ? ' · <span class="w-regen">' + regen + " % Regen</span>" : "") + "</div></div>";
+    if (window.WetterAnimLaufen) window.WetterAnimLaufen(el); // Übersichtskachel animiert (Mina 26.11.)
     detail(d);
   }
   var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
