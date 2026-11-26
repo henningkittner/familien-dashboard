@@ -58,7 +58,9 @@ async function verschluesseln(passwort, serverHex) {
 }
 async function loginText(mail, passwort, land, serverHex) {
   var v = await verschluesseln(passwort, serverHex || ANKER_SERVER);
-  return JSON.stringify({ ab: land, client_secret_info: { public_key: v.publicKey }, enc: 1, email: mail, password: v.password });
+  // enc: 0 wie in der Referenz-Bibliothek anker-solix-api (enc: 1 schaltet verschlüsselte Folgeanfragen ein → 400 Bad Request)
+  return JSON.stringify({ ab: land, client_secret_info: { public_key: v.publicKey }, enc: 0, email: mail, password: v.password,
+    time_zone: -new Date().getTimezoneOffset() * 60000, transaction: String(Date.now()) });
 }
 if (typeof document !== "undefined" && document.getElementById("los")) {
   document.getElementById("los").onclick = function () {
