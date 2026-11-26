@@ -1529,16 +1529,15 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var ende = m[3] ? p2(+m[3]) + ":" + m[4] : (function () { var t = +m[1] * 60 + +m[2] + 45; return p2(Math.floor(t / 60)) + ":" + p2(t % 60); })();
     return p2(+m[1]) + ":" + m[2] + "–" + ende;
   }
-  function spFach(f, name, tag) {
-    var k = SP_WEGLASSEN[String(name).split(" ")[0]];
-    if (!k || f.indexOf("/") < 0) return f;
-    var weg = (k.alle || []).concat(k[tag] || []), teile = f.split("/"), rest = [];
+  function spFach(f, name, tag) { // "IT/IT_2" → "IT"; dazu die Teile aus SP_WEGLASSEN weg
+    if (f.indexOf("/") < 0) return f;
+    var k = SP_WEGLASSEN[String(name).split(" ")[0]] || {};
+    var weg = (k.alle || []).concat(k[tag] || []), teile = f.split("/"), rest = [], da = {};
     for (var i = 0; i < teile.length; i++) {
-      var t = teile[i].replace(/^\s+|\s+$/g, "");
-      if (t && weg.indexOf(t.replace(/_\d+$/, "")) < 0) rest.push(t);
+      var t = teile[i].replace(/^\s+|\s+$/g, "").replace(/_\d+$/, "");
+      if (t && weg.indexOf(t) < 0 && !da[t]) { da[t] = 1; rest.push(t); }
     }
     if (!rest.length || rest.length === teile.length) return f;
-    for (var j = 0; j < rest.length; j++) rest[j] = rest[j].replace(/_\d+$/, "");
     return rest.join("/");
   }
   function spBlock(k) {
