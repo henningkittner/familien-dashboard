@@ -995,7 +995,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
-<div id="ruhe" class="h-wolken"><div id="aod-himmel"><div class="hs-sonne"></div><div class="hs-sterne"></div><div class="hw hw1"></div><div class="hw hw2"></div><div class="hw hw3"></div><div class="hw hw4"></div><div class="hw hw5"></div><div class="hn hn1"></div><div class="hn hn2"></div><canvas id="aod-schnee"></canvas><div class="hs-blitz"></div></div><div id="aod"><div id="aod-zeit"></div><div id="aod-datum"></div><div id="aod-ort">Unterhaching</div><div id="aod-wtemp"></div><div id="aod-wtext"></div><div id="aod-whl"></div><div id="aod-entfall"></div></div></div>
+<div id="ruhe" class="h-wolken"><div id="aod-himmel"><div class="hs-sonne"></div><div class="hs-sterne"></div><div class="hw hw1"></div><div class="hw hw2"></div><div class="hw hw3"></div><div class="hw hw4"></div><div class="hw hw5"></div><div class="hn hn1"></div><div class="hn hn2"></div><canvas id="aod-schnee"></canvas><div class="hs-blitz"></div></div><div id="aod"><div id="aod-zeit"></div><div id="aod-datum"></div><div id="aod-ort">Unterhaching</div><div id="aod-wtemp"></div><div id="aod-wtext"></div><div id="aod-whl"></div><div id="aod-hinweise"></div><div id="aod-entfall"></div></div></div>
 <style>
   /* Uhr-Ansicht im Stil eines Wetter-App-Kopfs: dunkler, wetterabhängiger Himmel, gedimmt */
   #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; overflow: hidden; }
@@ -1052,6 +1052,10 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .aod-grad { position: absolute; left: 100%; top: 0; }
   #aod-wtext { font-size: 30px; font-weight: 500; }
   #aod-whl { font-size: 30px; font-weight: 500; margin-top: 4px; }
+  #aod-hinweise { margin-top: 22px; font-size: 24px; font-weight: 500; line-height: 1.5; } /* Niederschlag in x Min + DWD-Warnungen (wetter_hinweise.js) */
+  #aod-hinweise .aod-nieder { color: #9fd0ff; }
+  #aod-hinweise .aod-warn { display: inline-block; margin: 0 12px; white-space: nowrap; }
+  #aod-hinweise .aod-warn-zeit { font-weight: 400; opacity: .85; }
   #aod-entfall { margin-top: 34px; font-size: 24px; font-weight: 500; line-height: 1.5; color: #ffb3ba; } /* nur Entfall, keine Vertretungen (Mina 25.11.) */
   #aod-entfall b { font-weight: 700; }
   /* Schalter für die Steckdose im Schlafzimmer: startet den Kurzbefehl „Schlafzimmer“ (Mina 25.11.) */
@@ -1233,6 +1237,91 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   }, true);
   ruhe.style.display = "none";
   pruefe(); setInterval(pruefe, 5000);
+})();
+
+</script>
+<script>
+/* Uhr-Ansicht: „Schnee/Regen in x Min“ aus dem DWD-Regenradar (Vorhersage bis ca. 2 Std, 5-Minuten-Schritte)
+   und amtliche DWD-Warnungen für Unterhaching. Beides über Bright Sky (kostenlos, ohne Schlüssel). ES5.
+   Testen: ?hinweistest=1 zeigt Beispielhinweise. */
+(function () {
+  var URL_RADAR = "https://api.brightsky.dev/radar?lat=48.066&lon=11.616&distance=1000&format=plain";
+  var URL_WARN = "https://api.brightsky.dev/alerts?lat=48.066&lon=11.616";
+  var SCHWELLE = 2; // precipitation_5 in 0,01 mm je 5 Min; 2 ≈ 0,24 mm/h, darunter nur Radar-Rauschen
+  var radar = null, warnungen = [];
+  var FARBE = { minor: "#ffd84d", moderate: "#ffa53a", severe: "#ff5b4a", extreme: "#d070ff" };
+  function holen(url, fertig) {
+    var x = new XMLHttpRequest();
+    x.open("GET", url, true);
+    x.onreadystatechange = function () {
+      if (x.readyState === 4 && x.status === 200) { try { fertig(JSON.parse(x.responseText)); } catch (e) {} }
+    };
+    x.send();
+  }
+  function zwei(n) { return (n < 10 ? "0" : "") + n; }
+  function uhr(d) { return d.getHours() + ":" + zwei(d.getMinutes()); }
+  function wort(s) { return s.toLowerCase().replace(/(^|[\s\-\/])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); }); }
+  function art() {
+    var t = window.WetterJetzt ? window.WetterJetzt.temp : 5;
+    return t <= 0.5 ? "Schnee" : (t <= 2 ? "Schneeregen" : "Regen");
+  }
+  function niederschlag() {
+    if (!radar || !radar.length) return "";
+    var jetzt = Date.now(), reihe = [];
+    for (var i = 0; i < radar.length; i++) {
+      var t = Date.parse(radar[i].timestamp);
+      if (t < jetzt - 5 * 60000) continue;
+      var g = radar[i].precipitation_5, m = 0;
+      for (var a = 0; a < g.length; a++) for (var b = 0; b < g[a].length; b++) m = Math.max(m, g[a][b]); // 3×3 Kacheln um Unterhaching
+      reihe.push({ t: t, nass: m >= SCHWELLE });
+    }
+    if (reihe.length < 2) return "";
+    var was = art(), ende = reihe[reihe.length - 1].t;
+    function min(t) { return Math.max(5, Math.round((t - jetzt) / 300000) * 5); }
+    if (reihe[0].nass) {
+      for (var j = 1; j < reihe.length - 1; j++) if (!reihe[j].nass && !reihe[j + 1].nass) return was + " hört in ca. " + min(reihe[j].t) + " Min auf";
+      return was + " noch mindestens bis " + uhr(new Date(ende));
+    }
+    for (var k = 1; k < reihe.length; k++) if (reihe[k].nass) return was + " in ca. " + min(reihe[k].t) + " Min";
+    return "";
+  }
+  function warnTexte() {
+    var jetzt = Date.now(), html = "", schon = {};
+    for (var i = 0; i < warnungen.length; i++) {
+      var w = warnungen[i], von = Date.parse(w.onset), bis = Date.parse(w.expires);
+      if (bis && bis < jetzt) continue;
+      if (von && von > jetzt + 24 * 3600000) continue;
+      var name = wort(w.event_de || ""); if (!name || schon[name]) continue; schon[name] = 1;
+      var heute = new Date().toDateString(), zeit;
+      if (von && von > jetzt) zeit = "ab " + (new Date(von).toDateString() === heute ? "" : "morgen ") + uhr(new Date(von)) + " Uhr";
+      else if (bis) zeit = "bis " + (new Date(bis).toDateString() === heute ? "" : "morgen ") + uhr(new Date(bis)) + " Uhr";
+      else zeit = "";
+      html += '<span class="aod-warn" style="color:' + (FARBE[w.severity] || FARBE.minor) + '"><span class="aod-warn-zeichen">&#9888;&#xFE0E;</span> ' + name + (zeit ? ' <span class="aod-warn-zeit">' + zeit + "</span>" : "") + "</span>";
+    }
+    return html;
+  }
+  function zeigen() {
+    var el = document.getElementById("aod-hinweise"); if (!el) return;
+    var n = niederschlag(), html = (n ? '<div class="aod-nieder">' + n + "</div>" : "");
+    var w = warnTexte(); if (w) html += '<div class="aod-warnungen">' + w + "</div>";
+    if (el.innerHTML !== html) el.innerHTML = html;
+  }
+  function laden() {
+    holen(URL_RADAR, function (d) { if (d && d.radar) { radar = d.radar; zeigen(); } });
+    holen(URL_WARN, function (d) { if (d && d.alerts) { warnungen = d.alerts; zeigen(); } });
+  }
+  if (/[?&]hinweistest=1/.test(location.search)) {
+    var t0 = Date.now(), r = [];
+    for (var i = 0; i < 24; i++) r.push({ timestamp: new Date(t0 + i * 300000).toISOString(), precipitation_5: [[0, 0, 0], [0, i >= 5 ? 6 : 0, 0], [0, 0, 0]] });
+    radar = r;
+    warnungen = [{ event_de: "FROST", severity: "minor", onset: new Date(t0 - 3600000).toISOString(), expires: new Date(t0 + 4 * 3600000).toISOString() },
+      { event_de: "GLÄTTE", severity: "moderate", onset: new Date(t0 + 2 * 3600000).toISOString(), expires: new Date(t0 + 9 * 3600000).toISOString() }];
+    setTimeout(zeigen, 2500); setInterval(zeigen, 30000);
+    return;
+  }
+  laden();
+  setInterval(laden, 5 * 60 * 1000);
+  setInterval(zeigen, 60 * 1000); // Minuten weiterzählen
 })();
 
 </script>
