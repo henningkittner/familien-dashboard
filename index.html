@@ -1269,7 +1269,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var rest = d.soc != null && d.kwh ? d.kwh * d.soc / 100 : null, i, pvKl = [];
     for (i = 0; i < (d.pvs || []).length; i++) if (d.pvs[i] > 0) pvKl.push("PV" + (i + 1) + " " + watt(d.pvs[i]));
     if (!pvKl.length && d.pvs && d.pvs.length) pvKl.push("alle Eingänge ohne Leistung");
-    var html = '<div class="sd-kopf"><span class="sd-name">Balkonkraftwerk</span><span class="sd-alter">Werte ' + alterText(d) + '</span><span id="sd-neu"' + (laeuft() ? ' class="laeuft"' : "") + '>' + (laeuft() ? "Hole Werte …" : "↻ Aktualisieren") + "</span></div>" +
+    var html = '<div class="sd-kopf"><span class="sd-name">Balkonkraftwerk</span><span class="sd-alter">Werte ' + alterText(d) + '</span></div>' +
       '<div class="sd-oben"><div class="sd-box sd-fluss-box"><div class="sd-titel">Energiefluss</div>' + fluss(d) + "</div>" +
       '<div class="sd-rechts">' +
         '<div class="sd-box sd-akku"><div class="sd-titel">Akku</div><div class="sd-akku-zeile"><div class="sd-akku-gross">' + (d.soc == null ? "–" : d.soc + "<small> %</small>") + "</div>" +
@@ -1304,10 +1304,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     detail();
     location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent("Solar");
   }
-  window.SolarGeoeffnet = function () { // aus fokus.js, direkt beim Antippen der Kachel
-    var d = laden();
-    if (!d || (Date.now() - d.zeit) / 60000 > FRISCH_MIN) aktualisieren();
-  };
+  // Mina 26.11.: kein Sprung in die Kurzbefehle-App; Werte kommen über Kurzbefehl/Automation.
   // Fluss-Punkte wandern lassen (nur wenn die Detailansicht offen ist)
   var versatz = 0, warOffen = false;
   setInterval(function () {
