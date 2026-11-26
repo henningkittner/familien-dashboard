@@ -834,6 +834,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (c === 2) return "Teils bewölkt";
     if (c === 3) return "Bewölkt";
     if (c === 45 || c === 48) return "Nebel";
+    if (c === 56 || c === 57) return "Gefrierender Niesel";
+    if (c === 66 || c === 67) return "Gefrierender Regen";
     if (c >= 51 && c <= 57) return "Nieselregen";
     if (c >= 61 && c <= 67) return "Regen";
     if (c >= 71 && c <= 77) return "Schnee";
@@ -847,7 +849,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var el = document.getElementById("wetter");
     if (!el || !d || !d.current) return;
     var c = d.current.weather_code, tag = d.current.is_day, t = d.daily;
-    window.WetterJetzt = { code: c, tag: !!tag, temp: d.current.temperature_2m, text: text(c, tag), hoch: t.temperature_2m_max[0], tief: t.temperature_2m_min[0] }; // für die Uhr-Ansicht
+    window.WetterJetzt = { code: c, tag: !!tag, temp: d.current.temperature_2m, text: text(c, tag), nass: (c >= 51 && c <= 67) || (c >= 71 && c <= 86) || c >= 95, schnee: (c >= 71 && c <= 77) || c === 85 || c === 86, hoch: t.temperature_2m_max[0], tief: t.temperature_2m_min[0] }; // für die Uhr-Ansicht
     var regen = t.precipitation_probability_max ? t.precipitation_probability_max[0] : null;
     el.innerHTML = '<div class="w-symbol">' + symbol(c, tag) + '</div><div class="w-werte"><div class="w-temp">' + r(d.current.temperature_2m) +
       '</div><div class="w-klein">' + text(c, tag) + '</div><div class="w-klein">H: ' + r(t.temperature_2m_max[0]) + " &nbsp;T: " + r(t.temperature_2m_min[0]) +
@@ -912,7 +914,12 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var i = w.icon || "", c = w.condition || "";
     if (c === "thunderstorm" || i === "thunderstorm") return 95;
     if (c === "snow" || i === "snow") return 73;
-    if (c === "rain" || c === "sleet" || c === "hail" || i === "rain" || i === "sleet" || i === "hail") return (w.precipitation_60 != null && w.precipitation_60 < 0.3) ? 53 : 63;
+    var t = w.temperature, leicht = w.precipitation_60 != null && w.precipitation_60 < 0.3;
+    if (c === "sleet" || i === "sleet") return (t != null && t <= 1) ? 73 : 63; // Schneeregen: bei Frost als Schnee
+    if (c === "rain" || c === "hail" || i === "rain" || i === "hail") {
+      if (t != null && t <= 0) return leicht ? 56 : 66; // Regen bei Frost = gefrierend (Glättegefahr)
+      return leicht ? 53 : 63;
+    }
     if (c === "fog" || i === "fog") return 45;
     if (/^clear/.test(i)) return 0;
     if (/^partly-cloudy/.test(i)) return 2;
@@ -1261,8 +1268,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   function zwei(n) { return (n < 10 ? "0" : "") + n; }
   function uhr(d) { return d.getHours() + ":" + zwei(d.getMinutes()); }
   function wort(s) { return s.toLowerCase().replace(/(^|[\s\-\/])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); }); }
-  function art() {
-    var t = window.WetterJetzt ? window.WetterJetzt.temp : 5;
+  function art() { // gleiche Art wie die Wetterzeile darüber, sonst nach Temperatur
+    var wj = window.WetterJetzt || {}, t = wj.temp != null ? wj.temp : 5;
+    if (wj.nass && wj.text) return wj.schnee ? "Schnee" : (/Gewitter/.test(wj.text) ? "Regen" : wj.text);
     return t <= 0.5 ? "Schnee" : (t <= 2 ? "Schneeregen" : "Regen");
   }
   function niederschlag() {
@@ -1278,7 +1286,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (reihe.length < 2) return "";
     var was = art(), ende = reihe[reihe.length - 1].t;
     function min(t) { return Math.max(5, Math.round((t - jetzt) / 300000) * 5); }
-    if (reihe[0].nass) {
+    var gemessenNass = !!(window.WetterJetzt && window.WetterJetzt.nass); // Messstation meldet schon Niederschlag
+    if (reihe[0].nass || gemessenNass) {
+      if (!reihe[0].nass) return ""; // Radar sieht (noch) nichts: keine widersprüchliche Ansage
       for (var j = 1; j < reihe.length - 1; j++) if (!reihe[j].nass && !reihe[j + 1].nass) return was + " hört in ca. " + min(reihe[j].t) + " Min auf";
       return was + " noch mindestens bis " + uhr(new Date(ende));
     }
@@ -1296,7 +1306,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       if (von && von > jetzt) zeit = "ab " + (new Date(von).toDateString() === heute ? "" : "morgen ") + uhr(new Date(von)) + " Uhr";
       else if (bis) zeit = "bis " + (new Date(bis).toDateString() === heute ? "" : "morgen ") + uhr(new Date(bis)) + " Uhr";
       else zeit = "";
-      html += '<span class="aod-warn" style="color:' + (FARBE[w.severity] || FARBE.minor) + '"><span class="aod-warn-zeichen">&#9888;&#xFE0E;</span> ' + name + (zeit ? ' <span class="aod-warn-zeit">' + zeit + "</span>" : "") + "</span>";
+      html += '<span class="aod-warn" style="color:' + (FARBE[w.severity] || FARBE.minor) + '"><span class="aod-warn-zeichen">&#9888;&#xFE0E;</span> DWD-Warnung: ' + name + (zeit ? ' <span class="aod-warn-zeit">' + zeit + "</span>" : "") + "</span>";
     }
     return html;
   }
