@@ -71,6 +71,19 @@ button.ok{background:#30a14e}
 <div class="t">@@SA@@</div>
 <button onclick="kopiere(17,this)">Kopieren</button></div>
 
+<h1 style="margin-top:28px">Muster für Teil 9 (Stundenplan)</h1>
+<div class="k"><div class="kopf"><span class="nr">P1</span>URL – Seite mit dem Stundenplan</div>
+<div class="t">https://wkrstauf.eltern-portal.org/service/stundenplan</div>
+<button onclick="kopiere(41,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">P2</span>Name konfigurieren – Name</div>
+<div class="t">sp.txt</div>
+<button onclick="kopiere(42,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">P3</span>Text abgleichen – Muster</div>
+<div class="t">&lt;table[\s\S]*?&lt;/table&gt;</div>
+<button onclick="kopiere(43,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">P4</span>Trenner im Text (eigene Zeile)</div>
+<div class="t">@@SP@@</div>
+<button onclick="kopiere(44,this)">Kopieren</button></div>
 <h1 id="solar" style="margin-top:28px">Muster für den Kurzbefehl „Solar“</h1>
 <p>Die Nummern passen zur Anleitung Teil 2. H1 bis H8 sind die Header (links Schlüssel, rechts Wert).</p>
 <div class="k"><div class="kopf"><span class="nr">Solar 2</span>URL – Anmeldung</div>
@@ -144,7 +157,7 @@ button.ok{background:#30a14e}
 <button onclick="kopiere(40,this)">Kopieren</button></div>
 <textarea id="puffer" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px" readonly></textarea>
 <script>
-var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "vp_", ".txt", "(?m)^\\d{1,2}\\. ·", "Vertretungsplan für ", "\\s*·?\\s*&nbsp;", "(\\d{2}\\.\\d{2}\\.\\d{4})(?=\\n[A-Z][a-z]\\.,|\\s*$)", "$1\nkeine Änderungen", "https://wkrstauf.eltern-portal.org/service/termine/liste/schulaufgaben", "sa.txt", "<tr[\\s\\S]*?</tr>", "@@SA@@", "https://ankerpower-api-eu.anker.com/passport/login", "Content-Type", "application/json", "Country", "DE", "Timezone", "GMT+01:00", "App-Name", "anker_power", "Os-Type", "android", "Model-Type", "DESKTOP", "data", "auth_token", "user_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_site_list", "X-Auth-Token", "gtoken", "site_list", "site_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_scen_info", "https://henningkittner.github.io/familien-dashboard/#pv="];
+var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "vp_", ".txt", "(?m)^\\d{1,2}\\. ·", "Vertretungsplan für ", "\\s*·?\\s*&nbsp;", "(\\d{2}\\.\\d{2}\\.\\d{4})(?=\\n[A-Z][a-z]\\.,|\\s*$)", "$1\nkeine Änderungen", "https://wkrstauf.eltern-portal.org/service/termine/liste/schulaufgaben", "sa.txt", "<tr[\\s\\S]*?</tr>", "@@SA@@", "https://ankerpower-api-eu.anker.com/passport/login", "Content-Type", "application/json", "Country", "DE", "Timezone", "GMT+01:00", "App-Name", "anker_power", "Os-Type", "android", "Model-Type", "DESKTOP", "data", "auth_token", "user_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_site_list", "X-Auth-Token", "gtoken", "site_list", "site_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_scen_info", "https://henningkittner.github.io/familien-dashboard/#pv=", "https://wkrstauf.eltern-portal.org/service/stundenplan", "sp.txt", "<table[\\s\\S]*?</table>", "@@SP@@"];
 function fertig(knopf, ok) {
   knopf.innerHTML = ok ? "Kopiert ✓" : "Bitte Text lange drücken";
   knopf.className = ok ? "ok" : "";

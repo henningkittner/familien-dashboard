@@ -517,6 +517,19 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .wd-t-max { width: 48px; text-align: left; font-size: 18px; font-weight: 600; padding-left: 12px; }
   .wd-balken { -webkit-flex: 1; flex: 1; height: 6px; background: #0f1520; border-radius: 3px; position: relative; margin-left: 12px; }
   .wd-balken div { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, #4fb3ff, #9be15d, #ffc933); }
+  .wd-unten { display: -webkit-flex; display: flex; -webkit-align-items: stretch; align-items: stretch; }
+  .wd-unten .wd-tage-box { -webkit-flex: 1.25; flex: 1.25; min-width: 0; }
+  .wd-radar-box { -webkit-flex: 1; flex: 1; margin-left: 12px; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; min-width: 0; }
+  #wd-radar { -webkit-flex: 1; flex: 1; position: relative; overflow: hidden; border-radius: 10px; background: #0e131b; min-height: 220px; }
+  #wd-radar .wd-radar-kachel.osm { -webkit-filter: invert(1) hue-rotate(180deg) brightness(.6) contrast(.8) saturate(.3); filter: invert(1) hue-rotate(180deg) brightness(.6) contrast(.8) saturate(.3); } /* Ersatzkarte, falls Esri ausfällt */
+  #wd-radar .wd-radar-ort { position: absolute; -webkit-transform: translate(-50%,-50%); transform: translate(-50%,-50%); font-size: 11px; font-weight: 600; color: rgba(225,232,242,.8); letter-spacing: .2px; white-space: nowrap; text-shadow: 0 0 3px #0e131b, 0 0 3px #0e131b; pointer-events: none; }
+  #wd-radar .wd-radar-bild { position: absolute; left: 0; top: 0; }
+  #wd-radar .wd-radar-haus { position: absolute; width: 8px; height: 8px; border: 2px solid #fff; border-radius: 50%; background: #ff5b4a; box-shadow: 0 0 0 2px rgba(0,0,0,.4); }
+  #wd-radar .wd-radar-zeit { position: absolute; left: 8px; top: 8px; font-size: 14px; font-weight: 600; color: #fff; background: rgba(27,36,51,.88); border-radius: 8px; padding: 3px 9px; font-variant-numeric: tabular-nums; }
+  #wd-radar .wd-radar-zeit span { font-size: 12px; font-weight: 500; color: #8f9bb0; margin-left: 3px; }
+  #wd-radar .wd-radar-hinweis { position: absolute; right: 6px; bottom: 4px; font-size: 9px; color: rgba(255,255,255,.45); }
+  #wd-radar .wd-radar-status { position: absolute; left: 10px; right: 10px; bottom: 22px; text-align: center; font-size: 13px; font-weight: 500; color: #dfe6f0; background: rgba(14,19,27,.75); border-radius: 8px; padding: 5px 8px; }
+  #wd-radar .wd-radar-fehler { padding: 30px 10px; text-align: center; color: #8f9bb0; font-size: 14px; }
   .wd-quelle { font-size: 12px; color: #5d6a7e; padding: 0 4px; }
 </style>
 <style>
@@ -647,6 +660,104 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 
 </script>
 <script>
+/* Regenradar für die Wetter-Detailansicht: DWD-Radar (Bright Sky /radar, 5-Minuten-Schritte, ca. 1 Std zurück
+   und 1–2 Std Vorhersage) als Schleife über einer abgedunkelten OpenStreetMap-Karte (ohne Schlüssel; CARTO verlangte einen API-Key) rund um Unterhaching.
+   Läuft nur, solange die Detailansicht offen ist. ES5, per setInterval (Keyframes laufen auf dem iPad nicht). */
+(function () {
+  var LAT = 48.066, LON = 11.616, ZOOM = 11;
+  var ORTE = [["Giesing", 48.112, 11.588], ["Neuperlach", 48.100, 11.648], ["Neubiberg", 48.077, 11.661], ["Ottobrunn", 48.060, 11.672], ["Taufkirchen", 48.047, 11.617], ["Oberhaching", 48.021, 11.588], ["Grünwald", 48.040, 11.525], ["Pullach", 48.060, 11.524]];
+  var URL_R = "https://api.brightsky.dev/radar?lat=" + LAT + "&lon=" + LON + "&distance=16000&format=plain";
+  var statusText = "Radar wird geladen …", daten = null, geladen = 0, bild = 0, timer = null, el = null, pause = 0, laedt = false;
+  // Farbskala in mm/h (Wert × 0,12, weil precipitation_5 = 0,01 mm je 5 Min)
+  var STUFEN = [[0.1, "rgba(150,205,255,.30)"], [0.3, "rgba(110,175,255,.50)"], [0.6, "rgba(70,135,255,.70)"], [1.5, "rgba(40,190,110,.80)"], [4, "rgba(255,220,60,.90)"], [10, "rgba(255,150,40,.95)"], [25, "rgba(255,60,60,.95)"]]; // feine Stufen, damit auch leichter Schnee sichtbar ist
+  function farbe(v) { var mm = v * 0.12, f = null; for (var i = 0; i < STUFEN.length; i++) if (mm >= STUFEN[i][0]) f = STUFEN[i][1]; return f; }
+  function px(lon, lat) { // Web-Mercator-Pixel bei ZOOM
+    var n = 256 * Math.pow(2, ZOOM), s = Math.sin(lat * Math.PI / 180);
+    return { x: (lon + 180) / 360 * n, y: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n };
+  }
+  function zwei(n) { return (n < 10 ? "0" : "") + n; }
+  function aufbauen() { // Karte aus Kacheln + Leinwand fürs Radar + Haus-Markierung
+    var b = el.offsetWidth, h = el.offsetHeight; if (!b || !h) return false;
+    var m = px(LON, LAT), x0 = m.x - b / 2, y0 = m.y - h / 2, html = "", orte = "";
+    for (var tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + b) / 256); tx++)
+      for (var ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + h) / 256); ty++)
+        html += '<img class="wd-radar-kachel" src="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/' + ZOOM + "/" + ty + "/" + tx + '" data-osm="https://tile.openstreetmap.org/' + ZOOM + "/" + tx + "/" + ty + '.png" style="position:absolute;left:' + Math.round(tx * 256 - x0) + "px;top:" + Math.round(ty * 256 - y0) + 'px;width:256px;height:256px" alt="" onerror="if(this.getAttribute(\'data-osm\')){this.src=this.getAttribute(\'data-osm\');this.removeAttribute(\'data-osm\');this.className+=\' osm\'}else{this.style.display=\'none\'}">';
+    for (var o = 0; o < ORTE.length; o++) { // eigene, ruhige Ortsnamen statt der Kartenbeschriftung
+      var q = px(ORTE[o][2], ORTE[o][1]), lx = Math.round(q.x - x0), ly = Math.round(q.y - y0);
+      if (lx > 20 && lx < b - 20 && ly > 30 && ly < h - 20) orte += '<div class="wd-radar-ort" style="left:' + lx + "px;top:" + ly + 'px">' + ORTE[o][0] + "</div>";
+    }
+    html += '<canvas class="wd-radar-bild" width="' + b + '" height="' + h + '"></canvas>' +
+      orte +
+      '<div class="wd-radar-haus" style="left:' + Math.round(b / 2 - 6) + "px;top:" + Math.round(h / 2 - 6) + 'px"></div>' +
+      '<div class="wd-radar-zeit"></div><div class="wd-radar-status">' + statusText + '</div><div class="wd-radar-hinweis">Karte: Esri · Radar: DWD</div>';
+    el.innerHTML = html;
+    el._x0 = x0; el._y0 = y0;
+    return true;
+  }
+  function zeichnen() {
+    if (!el || !daten || !daten.radar || !daten.radar.length) return;
+    var cv = el.querySelector(".wd-radar-bild"); if (!cv) return;
+    var r = daten.radar[bild], g = r.precipitation_5, zeilen = g.length, spalten = g[0].length;
+    var off = document.createElement("canvas"); off.width = spalten; off.height = zeilen;
+    var oc = off.getContext("2d");
+    for (var i = 0; i < zeilen; i++) for (var j = 0; j < spalten; j++) { var f = farbe(g[i][j]); if (f) { oc.fillStyle = f; oc.fillRect(j, i, 1, 1); } }
+    // Ecken der Radarzellen (Mittelpunkte): oben links, unten links, unten rechts, oben rechts
+    var k = daten.geometry.coordinates; if (typeof k[0][0] !== "number") k = k[0]; // Bright Sky liefert die 4 Ecken direkt (nicht verschachtelt)
+    var tl = px(k[0][0], k[0][1]), bl = px(k[1][0], k[1][1]), tr = px(k[3][0], k[3][1]);
+    var dx = { x: (tr.x - tl.x) / (spalten - 1), y: (tr.y - tl.y) / (spalten - 1) }, dy = { x: (bl.x - tl.x) / (zeilen - 1), y: (bl.y - tl.y) / (zeilen - 1) };
+    var c = cv.getContext("2d");
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height);
+    c.setTransform(dx.x, dx.y, dy.x, dy.y, tl.x - el._x0 - 0.5 * (dx.x + dy.x), tl.y - el._y0 - 0.5 * (dx.y + dy.y));
+    c.imageSmoothingEnabled = true; c.drawImage(off, 0, 0);
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    var d = new Date(Date.parse(r.timestamp)), zukunft = d.getTime() > Date.now() + 60000;
+    var z = el.querySelector(".wd-radar-zeit");
+    if (z) z.innerHTML = d.getHours() + ":" + zwei(d.getMinutes()) + (zukunft ? ' <span>Vorhersage</span>' : ' <span>gemessen</span>');
+  }
+  function status(t) {
+    statusText = t;
+    var s = el && el.querySelector(".wd-radar-status");
+    if (s) { s.innerHTML = t; s.style.display = t ? "block" : "none"; }
+  }
+  function laden() {
+    if (laedt) return; laedt = true;
+    var x = new XMLHttpRequest();
+    x.open("GET", URL_R, true);
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      laedt = false;
+      if (x.status === 200) {
+        try {
+          var d = JSON.parse(x.responseText), jetzt = Date.now(), r = [];
+          for (var i = 0; i < d.radar.length; i++) if (Date.parse(d.radar[i].timestamp) >= jetzt - 60 * 60000) r.push(d.radar[i]);
+          d.radar = r; daten = d; geladen = jetzt; bild = 0;
+          var max = 0;
+          for (var k = 0; k < r.length; k++) { var g = r[k].precipitation_5; for (var a = 0; a < g.length; a++) for (var b = 0; b < g[a].length; b++) if (g[a][b] > max) max = g[a][b]; }
+          status(max * 0.12 >= 0.1 ? "" : "Gerade kein Regen oder Schnee in der Gegend – das Radar zeigt nur Niederschlag, keine Wolken.");
+          zeichnen();
+        } catch (e) {}
+      } else if (!daten) status("Radardaten gerade nicht erreichbar");
+    };
+    x.send();
+  }
+  function schritt() {
+    if (!el || !/fokus-wetter/.test(document.body.className) || !el.offsetWidth) return;
+    if (!el.querySelector(".wd-radar-bild") && !aufbauen()) return;
+    if (!daten || Date.now() - geladen > 5 * 60000) laden();
+    if (!daten) return;
+    if (pause > 0) { pause--; return; }
+    bild = (bild + 1) % daten.radar.length;
+    if (bild === daten.radar.length - 1) pause = 3; // am Ende kurz stehen bleiben
+    zeichnen();
+  }
+  window.RadarStart = function (behaelter) {
+    el = behaelter; bild = 0;
+    if (!timer) timer = setInterval(schritt, 1100); // ruhig: gut 1 Sekunde je Bild (Mina 26.11.)
+  };
+})();
+
+</script>
+<script>
 /* Animierte Wettersymbole für die Uhr-Ansicht. SVG mit SMIL-Animation (läuft in Safari ab iOS 9), ruhig und langsam. ES5.
    WetterAnim(code, tag) liefert ein SVG (viewBox 0 0 64 64) zum aktuellen Open-Meteo-Wettercode. */
 (function () {
@@ -733,12 +844,21 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     for (var m = 0; m < a.length; m++) r.push(a[m] + (b[m] - a[m]) * f);
     return r;
   }
+  var gruppen = {}; // je Behälter (Übersichtskachel, Detailansicht) eine Liste
   function schritt() {
-    if (!/fokus-wetter/.test(document.body.className)) return; // nur zeichnen, wenn die Ansicht offen ist
+    var ruhe = document.getElementById("ruhe");
+    if (ruhe && ruhe.style.display === "block") return; // Uhr-Ansicht deckt alles ab
     var t = (new Date().getTime() - t0) / 1000;
-    for (var i = 0; i < laeufer.length; i++) {
-      var l = laeufer[i], tt = t - l.begin;
-      if (tt < 0) continue;
+    for (var id in gruppen) {
+      var g = gruppen[id];
+      if (!g.el.offsetWidth) continue; // ausgeblendet: nicht zeichnen
+      for (var i = 0; i < g.liste.length; i++) schrittEins(g.liste[i], t);
+    }
+  }
+  function schrittEins(l, t) {
+    {
+      var tt = t - l.begin;
+      if (tt < 0) return;
       var w = wert(l, (tt % l.dur) / l.dur);
       if (l.art === "translate") l.el.setAttribute("transform", "translate(" + w[0].toFixed(2) + " " + (w[1] || 0).toFixed(2) + ")");
       else if (l.art === "rotate") l.el.setAttribute("transform", "rotate(" + w[0].toFixed(1) + " " + (w[1] || 0) + " " + (w[2] || 0) + ")");
@@ -746,7 +866,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     }
   }
   window.WetterAnimLaufen = function (behaelter) {
-    laeufer = [];
+    var laeufer = [];
+    gruppen[behaelter.id] = { el: behaelter, liste: laeufer };
     var an = behaelter.querySelectorAll("animate, animateTransform"), liste = [];
     for (var i = 0; i < an.length; i++) liste.push(an[i]);
     for (var j = 0; j < liste.length; j++) {
@@ -834,6 +955,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (c === 2) return "Teils bewölkt";
     if (c === 3) return "Bewölkt";
     if (c === 45 || c === 48) return "Nebel";
+    if (c === 56 || c === 57) return "Gefrierender Niesel";
+    if (c === 66 || c === 67) return "Gefrierender Regen";
     if (c >= 51 && c <= 57) return "Nieselregen";
     if (c >= 61 && c <= 67) return "Regen";
     if (c >= 71 && c <= 77) return "Schnee";
@@ -847,11 +970,12 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var el = document.getElementById("wetter");
     if (!el || !d || !d.current) return;
     var c = d.current.weather_code, tag = d.current.is_day, t = d.daily;
-    window.WetterJetzt = { code: c, tag: !!tag, temp: d.current.temperature_2m, text: text(c, tag), hoch: t.temperature_2m_max[0], tief: t.temperature_2m_min[0] }; // für die Uhr-Ansicht
+    window.WetterJetzt = { code: c, tag: !!tag, temp: d.current.temperature_2m, text: text(c, tag), nass: (c >= 51 && c <= 67) || (c >= 71 && c <= 86) || c >= 95, schnee: (c >= 71 && c <= 77) || c === 85 || c === 86, hoch: t.temperature_2m_max[0], tief: t.temperature_2m_min[0] }; // für die Uhr-Ansicht
     var regen = t.precipitation_probability_max ? t.precipitation_probability_max[0] : null;
-    el.innerHTML = '<div class="w-symbol">' + symbol(c, tag) + '</div><div class="w-werte"><div class="w-temp">' + r(d.current.temperature_2m) +
+    el.innerHTML = '<div class="w-symbol">' + symbolG(c, tag, GROESSE) + '</div><div class="w-werte"><div class="w-temp">' + r(d.current.temperature_2m) +
       '</div><div class="w-klein">' + text(c, tag) + '</div><div class="w-klein">H: ' + r(t.temperature_2m_max[0]) + " &nbsp;T: " + r(t.temperature_2m_min[0]) +
       (regen != null && regen >= 20 ? ' · <span class="w-regen">' + regen + " % Regen</span>" : "") + "</div></div>";
+    if (window.WetterAnimLaufen) window.WetterAnimLaufen(el); // Übersichtskachel animiert (Mina 26.11.)
     detail(d);
   }
   var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
@@ -890,7 +1014,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var lo = 99, hi = -99;
     for (var k = 0; k < t.time.length; k++) { lo = Math.min(lo, t.temperature_2m_min[k]); hi = Math.max(hi, t.temperature_2m_max[k]); }
     var spanne = Math.max(1, hi - lo);
-    html += '<div class="wd-box wd-tage-box"><div class="wd-box-titel">7 Tage</div>';
+    html += '<div class="wd-unten"><div class="wd-box wd-tage-box"><div class="wd-box-titel">7 Tage</div>';
     for (var m = 0; m < t.time.length; m++) {
       var dt = new Date(t.time[m] + "T12:00:00"), pm = t.precipitation_probability_max ? t.precipitation_probability_max[m] : null;
       var links = (t.temperature_2m_min[m] - lo) / spanne * 100, breite = (t.temperature_2m_max[m] - t.temperature_2m_min[m]) / spanne * 100;
@@ -898,9 +1022,10 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
         '<div class="wd-t-regen">' + (pm != null && pm >= 20 ? pm + " %" : "") + '</div><div class="wd-t-min">' + r(t.temperature_2m_min[m]) +
         '</div><div class="wd-balken"><div style="left:' + links + "%;width:" + Math.max(breite, 4) + '%"></div></div><div class="wd-t-max">' + r(t.temperature_2m_max[m]) + "</div></div>";
     }
-    html += '</div><div class="wd-quelle">' + (d.gemessen ? "Jetzt: DWD-Messung Oberhaching (Bright Sky) · Vorhersage: Open-Meteo" : "Daten: Open-Meteo") + " · Antippen für Übersicht</div>";
+    html += '</div><div class="wd-box wd-radar-box"><div class="wd-box-titel">Regenradar</div><div id="wd-radar"></div></div></div><div class="wd-quelle">' + (d.gemessen ? "Jetzt: DWD-Messung Oberhaching (Bright Sky) · Vorhersage: Open-Meteo" : "Daten: Open-Meteo") + " · Antippen für Übersicht</div>";
     el.innerHTML = html;
     if (window.WetterAnimLaufen) window.WetterAnimLaufen(el);
+    if (window.RadarStart) window.RadarStart(document.getElementById("wd-radar"));
     if (window.Einpassen && /fokus-wetter/.test(document.body.className)) window.Einpassen();
   }
   function zwei(n) { return (n < 10 ? "0" : "") + n; }
@@ -912,7 +1037,12 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var i = w.icon || "", c = w.condition || "";
     if (c === "thunderstorm" || i === "thunderstorm") return 95;
     if (c === "snow" || i === "snow") return 73;
-    if (c === "rain" || c === "sleet" || c === "hail" || i === "rain" || i === "sleet" || i === "hail") return (w.precipitation_60 != null && w.precipitation_60 < 0.3) ? 53 : 63;
+    var t = w.temperature, leicht = w.precipitation_60 != null && w.precipitation_60 < 0.3;
+    if (c === "sleet" || i === "sleet") return (t != null && t <= 1) ? 73 : 63; // Schneeregen: bei Frost als Schnee
+    if (c === "rain" || c === "hail" || i === "rain" || i === "hail") {
+      if (t != null && t <= 0) return leicht ? 56 : 66; // Regen bei Frost = gefrierend (Glättegefahr)
+      return leicht ? 53 : 63;
+    }
     if (c === "fog" || i === "fog") return 45;
     if (/^clear/.test(i)) return 0;
     if (/^partly-cloudy/.test(i)) return 2;
@@ -1261,8 +1391,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   function zwei(n) { return (n < 10 ? "0" : "") + n; }
   function uhr(d) { return d.getHours() + ":" + zwei(d.getMinutes()); }
   function wort(s) { return s.toLowerCase().replace(/(^|[\s\-\/])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); }); }
-  function art() {
-    var t = window.WetterJetzt ? window.WetterJetzt.temp : 5;
+  function art() { // gleiche Art wie die Wetterzeile darüber, sonst nach Temperatur
+    var wj = window.WetterJetzt || {}, t = wj.temp != null ? wj.temp : 5;
+    if (wj.nass && wj.text) return wj.schnee ? "Schnee" : (/Gewitter/.test(wj.text) ? "Regen" : wj.text);
     return t <= 0.5 ? "Schnee" : (t <= 2 ? "Schneeregen" : "Regen");
   }
   function niederschlag() {
@@ -1278,7 +1409,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (reihe.length < 2) return "";
     var was = art(), ende = reihe[reihe.length - 1].t;
     function min(t) { return Math.max(5, Math.round((t - jetzt) / 300000) * 5); }
-    if (reihe[0].nass) {
+    var gemessenNass = !!(window.WetterJetzt && window.WetterJetzt.nass); // Messstation meldet schon Niederschlag
+    if (reihe[0].nass || gemessenNass) {
+      if (!reihe[0].nass) return ""; // Radar sieht (noch) nichts: keine widersprüchliche Ansage
       for (var j = 1; j < reihe.length - 1; j++) if (!reihe[j].nass && !reihe[j + 1].nass) return was + " hört in ca. " + min(reihe[j].t) + " Min auf";
       return was + " noch mindestens bis " + uhr(new Date(ende));
     }
@@ -1289,6 +1422,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var jetzt = Date.now(), html = "", schon = {};
     for (var i = 0; i < warnungen.length; i++) {
       var w = warnungen[i], von = Date.parse(w.onset), bis = Date.parse(w.expires);
+      if (w.severity !== "severe" && w.severity !== "extreme") continue; // nur Stufe Rot und höher (Mina 26.11.)
       if (bis && bis < jetzt) continue;
       if (von && von > jetzt + 24 * 3600000) continue;
       var name = wort(w.event_de || ""); if (!name || schon[name]) continue; schon[name] = 1;
@@ -1296,7 +1430,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       if (von && von > jetzt) zeit = "ab " + (new Date(von).toDateString() === heute ? "" : "morgen ") + uhr(new Date(von)) + " Uhr";
       else if (bis) zeit = "bis " + (new Date(bis).toDateString() === heute ? "" : "morgen ") + uhr(new Date(bis)) + " Uhr";
       else zeit = "";
-      html += '<span class="aod-warn" style="color:' + (FARBE[w.severity] || FARBE.minor) + '"><span class="aod-warn-zeichen">&#9888;&#xFE0E;</span> ' + name + (zeit ? ' <span class="aod-warn-zeit">' + zeit + "</span>" : "") + "</span>";
+      html += '<span class="aod-warn" style="color:' + (FARBE[w.severity] || FARBE.minor) + '"><span class="aod-warn-zeichen">&#9888;&#xFE0E;</span> DWD-Warnung: ' + name + (zeit ? ' <span class="aod-warn-zeit">' + zeit + "</span>" : "") + "</span>";
     }
     return html;
   }
@@ -1334,7 +1468,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
  *     https://<dashboard>/#vp=<Base64>
  * Base64-Inhalt (UTF-8): pro Kind  "Name\n<HTML der Vertretungsplan-Seite>",
  * Kinder getrennt durch "@@KIND@@". Optional pro Kind hinter "@@SA@@" die
- * Tabellenzeilen der Seite /service/termine/liste/schulaufgaben.
+ * Tabellenzeilen der Seite /service/termine/liste/schulaufgaben, hinter "@@SP@@"
+ * die Tabelle der Seite /service/stundenplan (nur in der Detailansicht sichtbar).
  * Der Hash wird nie an einen Server geschickt. Die Seite merkt sich die
  * Daten im localStorage des iPads und entfernt sie danach aus der Adresse.
  *
@@ -1346,7 +1481,13 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   var SPEICHER = "vertretungsplan_v1";
   var TAGE_ANZEIGEN = 2;
   var ZEILEN = 6;
-  var SA_ANZAHL = 3; // so viele kommende Schulaufgaben pro Kind // feste Zeilenzahl pro Kind, damit sich das Layout nicht verschiebt
+  var SA_ANZAHL = 3;
+  // Im Stundenplan bei geteilten Fächern („Sm/Sw“) diese Teile pro Kind (Vorname) weglassen.
+  // "alle" gilt jeden Tag, "Mo".."Fr" nur an dem Tag. Endungen wie "_2" oder "_ILR" fallen immer weg.
+  var SP_WEGLASSEN = {
+    Anna: { alle: ["Sm", "K", "Eth"] },
+    Felix: { alle: ["Sw", "K", "Eth"], Di: ["IT"], Fr: ["EG"] }
+  }; // so viele kommende Schulaufgaben pro Kind // feste Zeilenzahl pro Kind, damit sich das Layout nicht verschiebt
   var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
   function iso(d) {
@@ -1371,7 +1512,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 
   /* Zerlegt die Seite /service/vertretungsplan (gleiche Logik wie das Python-Skript) */
   function parsen(html) {
-    html = String(html).split("@@SA@@")[0];
+    html = String(html).split(/@@S[AP]@@/)[0];
     var doc = new DOMParser().parseFromString(html, "text/html");
     var inhalt = doc.getElementById("asam_content") || doc.body;
     var h2 = inhalt.querySelector("h2");
@@ -1449,6 +1590,98 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     return liste;
   }
 
+  /* Stundenplan: Tabelle der Seite /service/stundenplan. Kopfzeile mit Wochentagen,
+     danach pro Stunde: erste Zelle "Nr<br>Uhrzeit", dann je Tag "Fach<br>Raum".
+     Liefert {tage:["Mo",…], stunden:[{nr, zeit, zellen:[[zeile,…],…]}]} oder null. */
+  function zeilenVon(el) {
+    var k = el.cloneNode(true), brs = k.querySelectorAll("br");
+    for (var i = 0; i < brs.length; i++) brs[i].parentNode.replaceChild(document.createTextNode("\n"), brs[i]);
+    var roh = (k.textContent || "").replace(/\u00a0/g, " ").split("\n"), aus = [];
+    for (var j = 0; j < roh.length; j++) { var z = roh[j].replace(/\s+/g, " ").replace(/^\s+|\s+$/g, ""); if (z) aus.push(z); }
+    return aus;
+  }
+  function spParsen(html) {
+    var doc = new DOMParser().parseFromString(String(html), "text/html");
+    // Die Seite hat mehrere Tabellen (z. B. auch Fach/Lehrkraft). Nur die mit Wochentagen ist der Stundenplan.
+    var tab = doc.querySelectorAll("table"), beste = null;
+    for (var i = 0; i < tab.length && !beste; i++) {
+      var tz = tab[i].querySelectorAll("tr");
+      for (var r = 0; r < tz.length && r < 3 && !beste; r++) {
+        var zc = tz[r].querySelectorAll("td, th"), wt = 0;
+        for (var q = 0; q < zc.length; q++) if (/^(mo|di|mi|do|fr)/i.test(txt(zc[q]))) wt++;
+        if (wt >= 3) beste = tab[i];
+      }
+    }
+    if (!beste) return null;
+    var zeilen = beste.querySelectorAll("tr"), tage = null, stunden = [];
+    for (var z = 0; z < zeilen.length; z++) {
+      var c = zeilen[z].querySelectorAll("td, th");
+      if (c.length < 2) continue;
+      if (!tage) {
+        var kopf = [];
+        for (var a = 1; a < c.length; a++) kopf.push(txt(c[a]));
+        if (/^(mo|di|mi|do|fr)/i.test(kopf.join(" ").replace(/^\s+/, ""))) {
+          tage = [];
+          for (var b2 = 0; b2 < kopf.length; b2++) tage.push(kopf[b2].slice(0, 2));
+          continue;
+        }
+      }
+      var erste = zeilenVon(c[0]), zellen = [], belegt = false;
+      for (var d = 1; d < c.length; d++) { var zz = zeilenVon(c[d]); if (zz.length) belegt = true; zellen.push(zz); }
+      if (!erste.length && !belegt) continue;
+      stunden.push({ nr: (erste[0] || "").replace(/\.$/, ""), zeit: erste.slice(1).join(" ").replace(/\./g, ":"), zellen: zellen });
+    }
+    if (!stunden.length) return null;
+    // leere Stunden am Ende weglassen
+    while (stunden.length) {
+      var l = stunden[stunden.length - 1], leer = true;
+      for (var e = 0; e < l.zellen.length; e++) if (l.zellen[e].length) leer = false;
+      if (!leer) break;
+      stunden.pop();
+    }
+    return { tage: tage || ["Mo", "Di", "Mi", "Do", "Fr"], stunden: stunden };
+  }
+  function spBeschreibung(html) { // zur Fehlersuche: welche Tabellen kamen an?
+    var doc = new DOMParser().parseFromString(String(html), "text/html"), tab = doc.querySelectorAll("table"), teile = [];
+    for (var i = 0; i < tab.length && i < 4; i++) { var z = tab[i].querySelector("tr"); teile.push(tab[i].querySelectorAll("tr").length + " Zeilen: " + txt(z).slice(0, 60)); }
+    return String(html).length + " Zeichen, " + tab.length + " Tabellen" + (teile.length ? " · " + teile.join(" · ") : "");
+  }
+  function spZeit(z) { // "07:50 - 08:35" → "07:50–08:35"; nur Beginn → Ende = +45 Min.
+    var m = String(z).match(/(\d{1,2}):(\d{2})(?:\D+(\d{1,2}):(\d{2}))?/);
+    if (!m) return z;
+    var p2 = function (n) { return (n < 10 ? "0" : "") + n; };
+    var ende = m[3] ? p2(+m[3]) + ":" + m[4] : (function () { var t = +m[1] * 60 + +m[2] + 45; return p2(Math.floor(t / 60)) + ":" + p2(t % 60); })();
+    return p2(+m[1]) + ":" + m[2] + "–" + ende;
+  }
+  function spFach(f, name, tag) { // "IT/IT_2" → "IT", "M_ILR" → "M"; dazu die Teile aus SP_WEGLASSEN weg
+    if (f.indexOf("/") < 0) return f.replace(/^([^_]+)_.*$/, "$1");
+    var k = SP_WEGLASSEN[String(name).split(" ")[0]] || {};
+    var weg = (k.alle || []).concat(k[tag] || []), teile = f.split("/"), rest = [], da = {};
+    for (var i = 0; i < teile.length; i++) {
+      var t = teile[i].replace(/^\s+|\s+$/g, "").replace(/^([^_]+)_.*$/, "$1");
+      if (t && weg.indexOf(t) < 0 && !da[t]) { da[t] = 1; rest.push(t); }
+    }
+    return rest.length ? rest.join("/") : f;
+  }
+  function spBlock(k) {
+    var sp = k.stundenplan;
+    if (!sp) return '<div class="vp-sp"><div class="vp-tagname">Stundenplan</div><div class="vp-sa-keine">' +
+      (k.spHinweis ? "Nicht erkannt (" + esc(k.spHinweis) + ")" : "Noch keiner vom Kurzbefehl gekommen") + "</div></div>";
+    var heuteWt = WT[new Date().getDay()], html = '<div class="vp-sp"><div class="vp-tagname">Stundenplan</div><table><tr><th></th>';
+    for (var i = 0; i < sp.tage.length; i++) html += "<th" + (sp.tage[i] === heuteWt ? ' class="vp-sp-heute"' : "") + ">" + esc(sp.tage[i]) + "</th>";
+    html += "</tr>";
+    for (var s = 0; s < sp.stunden.length; s++) {
+      var st = sp.stunden[s];
+      html += '<tr><td class="vp-sp-nr">' + esc(st.nr) + (st.zeit ? "<small>" + esc(spZeit(st.zeit)).replace("–", "<br>") + "</small>" : "") + "</td>";
+      for (var t = 0; t < sp.tage.length; t++) {
+        var z = st.zellen[t] || [];
+        html += "<td" + (sp.tage[t] === heuteWt ? ' class="vp-sp-heute"' : "") + ">" + (z.length ? "<b>" + esc(spFach(z[0], k.name, sp.tage[t])) + "</b>" : "") + "</td>";
+      }
+      html += "</tr>";
+    }
+    return html + "</table></div>";
+  }
+
   function ausHash() {
     var m = location.hash.match(/[#&]vp=([^&]+)/);
     if (!m) return null;
@@ -1460,9 +1693,16 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       if (!b) continue;
       var nl = b.indexOf("\n");
       var name = (nl > 0 ? b.slice(0, nl) : "Kind " + (i + 1)).split("(")[0].replace(/^\s+|\s+$/g, "");
-      var rest = nl > 0 ? b.slice(nl + 1) : b, sa = rest.indexOf("@@SA@@");
-      var plan = parsen(rest);
-      if (sa >= 0) plan.schulaufgaben = saParsen(rest.slice(sa + 6));
+      var rest = nl > 0 ? b.slice(nl + 1) : b, teile = rest.split(/@@(S[AP])@@/);
+      var plan = parsen(teile[0]);
+      for (var t = 1; t + 1 < teile.length; t += 2) {
+        if (teile[t] === "SA") plan.schulaufgaben = saParsen(teile[t + 1]);
+        else {
+          var sp = spParsen(teile[t + 1]);
+          if (sp) plan.stundenplan = sp;
+          else plan.spHinweis = spBeschreibung(teile[t + 1]);
+        }
+      }
       plan.name = name;
       kinder.push(plan);
     }
@@ -1517,7 +1757,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     for (var q = 0; q < d.kinder.length; q++) if (d.kinder[q].schulaufgaben) mitSA = true;
     for (var i = 0; i < d.kinder.length; i++) {
       var k = d.kinder[i], gezeigt = 0, zeilen = 0;
-      html += '<div class="vp-kind"><div class="vp-kopf"><span class="vp-avatar vp-avatar' + (i % 2) + '">' + esc(k.name.charAt(0)) + "</span>" + esc(k.name) + (k.klasse ? "<small>Klasse " + esc(k.klasse) + "</small>" : "") + "</div>";
+      html += '<div class="vp-kind"><div class="vp-kopf"><span class="vp-avatar vp-avatar' + (i % 2) + '">' + esc(k.name.charAt(0)) + "</span>" + esc(k.name.split(" ")[0]) + (k.klasse ? "<small>Klasse " + esc(k.klasse) + "</small>" : "") + "</div>";
       for (var j = 0; j < k.tage.length && gezeigt < TAGE_ANZEIGEN; j++) {
         var t = k.tage[j];
         if (t.datum < heute) continue;
@@ -1531,8 +1771,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       if (!gezeigt) { html += '<div class="vp-ok">Noch kein Plan für die nächsten Tage</div>'; zeilen++; }
       var sab = saBlock(k, heute);
       html += sab.html; zeilen += sab.zeilen;
+      var spHtml = spBlock(k);
       for (; zeilen < ZEILEN; zeilen++) html += '<div class="vp-zeile vp-leer-zeile"><div class="vp-std">&nbsp;</div><div class="vp-was">&nbsp;</div></div>';
-      html += "</div>";
+      html += spHtml + "</div>";
     }
     var alter = Math.round((new Date().getTime() - d.aktualisiert) / 60000);
     var zeit = new Date(d.aktualisiert);
@@ -1557,6 +1798,12 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     ".vp-sa-block{margin-top:24px}.vp-sa{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:baseline;align-items:baseline;font-size:17px;padding:2px 0;color:#dfe5ec}" +
     ".vp-sa-dat{width:86px;-webkit-flex-shrink:0;flex-shrink:0;color:#9aa6b5;font-size:15px}.vp-sa-titel{-webkit-flex:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
     ".vp-sa-wann{-webkit-flex-shrink:0;flex-shrink:0;margin-left:8px;font-size:14px;color:#9aa6b5}.vp-sa-bald .vp-sa-wann{color:#ffc53d;font-weight:700}.vp-sa-keine{color:#9aa6b5;font-size:15px}" +
+    ".vp-sp{display:none;margin-top:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px 8px}body.fokus-vp .vp-sp{display:block}body.fokus-vp .vp-leer-zeile{display:none}" +
+    ".vp-sp table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}.vp-sp th{font-size:13px;color:#9aa6b5;font-weight:600;padding:2px 3px 4px;text-align:left}" +
+    ".vp-sp td{padding:5px 3px;border-top:1px solid rgba(255,255,255,.07);vertical-align:middle;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}" +
+    ".vp-sp td b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis}.vp-sp td small{display:block;font-size:11px;color:#9aa6b5;overflow:hidden;text-overflow:ellipsis}" +
+    ".vp-sp th:first-child,.vp-sp .vp-sp-nr{width:70px}.vp-sp td,.vp-sp th{text-align:center}.vp-sp th:first-child,.vp-sp .vp-sp-nr{text-align:left}.vp-sp .vp-sp-nr small{display:inline-block;vertical-align:middle;font-size:12px;line-height:1.25;margin-left:8px;font-weight:400}.vp-sp .vp-sp-nr{font-weight:700;color:#c3bad0}" +
+    ".vp-sp .vp-sp-heute{background:rgba(196,139,255,.14)}.vp-sp th.vp-sp-heute{color:#e6d4ff;border-radius:6px 6px 0 0}" +
     ".vp-leer{font-size:18px;color:#9aa6b5;padding:12px 0}.vp-fuss{font-size:13px;color:#6d7887;margin-top:4px}.vp-fuss.vp-alt{color:#ff8f99}";
 
   var fehler = "";
@@ -1569,6 +1816,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     try {
       var neu = ausHash();
       if (neu) {
+        var alt = laden(); // Stundenplan behalten, wenn der Kurzbefehl diesmal keinen mitschickt
+        if (alt && alt.kinder) for (var a = 0; a < neu.kinder.length; a++) for (var b = 0; b < alt.kinder.length; b++)
+          if (!neu.kinder[a].stundenplan && alt.kinder[b].stundenplan && alt.kinder[b].name === neu.kinder[a].name) neu.kinder[a].stundenplan = alt.kinder[b].stundenplan;
         speichern(neu);
         if (history.replaceState) history.replaceState(null, "", location.pathname + location.search);
       }
