@@ -192,9 +192,43 @@ button.ok{background:#30a14e}
 <div class="k"><div class="kopf"><span class="nr">T11</span>Text ersetzen – ersetzen durch</div>
 <div class="t">solar_production</div>
 <button onclick="kopiere(56,this)">Kopieren</button></div>
+<h1 id="solarzr" style="margin-top:28px">Solar – Zeiträume (Woche, Monat, Jahr, Gesamt)</h1>
+<div class="k"><div class="kopf"><span class="nr">Z1</span>Datum formatieren – eigenes Format für Monat</div>
+<div class="t" style="white-space:pre-wrap">yyyy-MM</div>
+<button onclick="kopiere(57,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">Z2</span>Datum formatieren – eigenes Format für Jahr</div>
+<div class="t" style="white-space:pre-wrap">yyyy</div>
+<button onclick="kopiere(58,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">Z3</span>Text Zeiträume – Anfang (dann Blase Wochenstart)</div>
+<div class="t" style="white-space:pre-wrap">{&quot;site_id&quot;:&quot;307d441d-2daa-43d4-a4cb-19efa40e7fa7&quot;,&quot;device_sn&quot;:&quot;&quot;,&quot;type&quot;:&quot;week&quot;,&quot;device_type&quot;:&quot;home_usage&quot;,&quot;start_time&quot;:&quot;</div>
+<button onclick="kopiere(59,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">Z4</span>Text Zeiträume – nach Wochenstart (dann Blase Heute)</div>
+<div class="t" style="white-space:pre-wrap">&quot;,&quot;end_time&quot;:&quot;</div>
+<button onclick="kopiere(60,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">Z5</span>Text Zeiträume – nach Heute (dann Blase Monat)</div>
+<div class="t" style="white-space:pre-wrap">&quot;}
+{&quot;site_id&quot;:&quot;307d441d-2daa-43d4-a4cb-19efa40e7fa7&quot;,&quot;device_sn&quot;:&quot;&quot;,&quot;type&quot;:&quot;month&quot;,&quot;device_type&quot;:&quot;home_usage&quot;,&quot;start_time&quot;:&quot;</div>
+<button onclick="kopiere(61,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">Z6</span>Text Zeiträume – nach Monat (dann Blase Jahr)</div>
+<div class="t" style="white-space:pre-wrap">&quot;,&quot;end_time&quot;:&quot;&quot;}
+{&quot;site_id&quot;:&quot;307d441d-2daa-43d4-a4cb-19efa40e7fa7&quot;,&quot;device_sn&quot;:&quot;&quot;,&quot;type&quot;:&quot;year&quot;,&quot;device_type&quot;:&quot;home_usage&quot;,&quot;start_time&quot;:&quot;</div>
+<button onclick="kopiere(62,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">Z7</span>Text Zeiträume – Schluss (nach Blase Jahr)</div>
+<div class="t" style="white-space:pre-wrap">&quot;,&quot;end_time&quot;:&quot;&quot;}
+{&quot;site_id&quot;:&quot;307d441d-2daa-43d4-a4cb-19efa40e7fa7&quot;,&quot;device_sn&quot;:&quot;&quot;,&quot;type&quot;:&quot;year&quot;,&quot;device_type&quot;:&quot;home_usage&quot;,&quot;start_time&quot;:&quot;2025&quot;,&quot;end_time&quot;:&quot;&quot;}</div>
+<button onclick="kopiere(63,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">Z8</span>Text kombinieren – eigenes Trennzeichen</div>
+<div class="t" style="white-space:pre-wrap">,</div>
+<button onclick="kopiere(64,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">Z9</span>Gesamtpaket – vor Blase Zeitraeume (hinter Blase SolarTag)</div>
+<div class="t" style="white-space:pre-wrap">,&quot;zr&quot;:[</div>
+<button onclick="kopiere(65,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">Z10</span>Gesamtpaket – nach Blase Zeitraeume (vor der letzten })</div>
+<div class="t" style="white-space:pre-wrap">]</div>
+<button onclick="kopiere(66,this)">Kopieren</button></div>
 <textarea id="puffer" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px" readonly></textarea>
 <script>
-var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "vp_", ".txt", "(?m)^\\d{1,2}\\. ·", "Vertretungsplan für ", "\\s*·?\\s*&nbsp;", "(\\d{2}\\.\\d{2}\\.\\d{4})(?=\\n[A-Z][a-z]\\.,|\\s*$)", "$1\nkeine Änderungen", "https://wkrstauf.eltern-portal.org/service/termine/liste/schulaufgaben", "sa.txt", "<tr[\\s\\S]*?</tr>", "@@SA@@", "https://ankerpower-api-eu.anker.com/passport/login", "Content-Type", "application/json", "Country", "DE", "Timezone", "GMT+01:00", "App-Name", "anker_power", "Os-Type", "android", "Model-Type", "DESKTOP", "data", "auth_token", "user_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_site_list", "X-Auth-Token", "gtoken", "site_list", "site_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_scen_info", "https://henningkittner.github.io/familien-dashboard/#pv=", "https://wkrstauf.eltern-portal.org/service/stundenplan", "sp.txt", "<table[\\s\\S]*?</table>", "@@SP@@", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\"}", "yyyy-MM-dd", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"day\",\"device_type\":\"home_usage\",\"start_time\":\"", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"day\",\"device_type\":\"solar_production\",\"start_time\":\"", "\",\"end_time\":\"\"}", "https://ankerpower-api-eu.anker.com/power_service/v1/site/energy_analysis", "{\"scen\":", ",\"haus\":", ",\"solar\":", "}", "home_usage", "solar_production"];
+var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "vp_", ".txt", "(?m)^\\d{1,2}\\. ·", "Vertretungsplan für ", "\\s*·?\\s*&nbsp;", "(\\d{2}\\.\\d{2}\\.\\d{4})(?=\\n[A-Z][a-z]\\.,|\\s*$)", "$1\nkeine Änderungen", "https://wkrstauf.eltern-portal.org/service/termine/liste/schulaufgaben", "sa.txt", "<tr[\\s\\S]*?</tr>", "@@SA@@", "https://ankerpower-api-eu.anker.com/passport/login", "Content-Type", "application/json", "Country", "DE", "Timezone", "GMT+01:00", "App-Name", "anker_power", "Os-Type", "android", "Model-Type", "DESKTOP", "data", "auth_token", "user_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_site_list", "X-Auth-Token", "gtoken", "site_list", "site_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_scen_info", "https://henningkittner.github.io/familien-dashboard/#pv=", "https://wkrstauf.eltern-portal.org/service/stundenplan", "sp.txt", "<table[\\s\\S]*?</table>", "@@SP@@", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\"}", "yyyy-MM-dd", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"day\",\"device_type\":\"home_usage\",\"start_time\":\"", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"day\",\"device_type\":\"solar_production\",\"start_time\":\"", "\",\"end_time\":\"\"}", "https://ankerpower-api-eu.anker.com/power_service/v1/site/energy_analysis", "{\"scen\":", ",\"haus\":", ",\"solar\":", "}", "home_usage", "solar_production", "yyyy-MM", "yyyy", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"week\",\"device_type\":\"home_usage\",\"start_time\":\"", "\",\"end_time\":\"", "\"}\n{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"month\",\"device_type\":\"home_usage\",\"start_time\":\"", "\",\"end_time\":\"\"}\n{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"year\",\"device_type\":\"home_usage\",\"start_time\":\"", "\",\"end_time\":\"\"}\n{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"year\",\"device_type\":\"home_usage\",\"start_time\":\"2025\",\"end_time\":\"\"}", ",", ",\"zr\":[", "]"];
 function fertig(knopf, ok) {
   knopf.innerHTML = ok ? "Kopiert ✓" : "Bitte Text lange drücken";
   knopf.className = ok ? "ok" : "";
