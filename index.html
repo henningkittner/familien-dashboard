@@ -1472,9 +1472,16 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   }
   function spParsen(html) {
     var doc = new DOMParser().parseFromString(String(html), "text/html");
-    var tab = doc.querySelectorAll("table"), beste = null, max = 0;
-    for (var i = 0; i < tab.length; i++) { var n = tab[i].querySelectorAll("tr").length; if (n > max) { max = n; beste = tab[i]; } }
-    if (!beste) doc = new DOMParser().parseFromString("<table>" + html + "</table>", "text/html"), beste = doc.querySelector("table");
+    // Die Seite hat mehrere Tabellen (z. B. auch Fach/Lehrkraft). Nur die mit Wochentagen ist der Stundenplan.
+    var tab = doc.querySelectorAll("table"), beste = null;
+    for (var i = 0; i < tab.length && !beste; i++) {
+      var tz = tab[i].querySelectorAll("tr");
+      for (var r = 0; r < tz.length && r < 3 && !beste; r++) {
+        var zc = tz[r].querySelectorAll("td, th"), wt = 0;
+        for (var q = 0; q < zc.length; q++) if (/^(mo|di|mi|do|fr)/i.test(txt(zc[q]))) wt++;
+        if (wt >= 3) beste = tab[i];
+      }
+    }
     if (!beste) return null;
     var zeilen = beste.querySelectorAll("tr"), tage = null, stunden = [];
     for (var z = 0; z < zeilen.length; z++) {
@@ -1503,6 +1510,11 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       stunden.pop();
     }
     return { tage: tage || ["Mo", "Di", "Mi", "Do", "Fr"], stunden: stunden };
+  }
+  function spBeschreibung(html) { // zur Fehlersuche: welche Tabellen kamen an?
+    var doc = new DOMParser().parseFromString(String(html), "text/html"), tab = doc.querySelectorAll("table"), teile = [];
+    for (var i = 0; i < tab.length && i < 4; i++) { var z = tab[i].querySelector("tr"); teile.push(tab[i].querySelectorAll("tr").length + " Zeilen: " + txt(z).slice(0, 60)); }
+    return String(html).length + " Zeichen, " + tab.length + " Tabellen" + (teile.length ? " · " + teile.join(" · ") : "");
   }
   function spBlock(k) {
     var sp = k.stundenplan;
@@ -1541,7 +1553,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
         else {
           var sp = spParsen(teile[t + 1]);
           if (sp) plan.stundenplan = sp;
-          else plan.spHinweis = String(teile[t + 1]).length + " Zeichen: " + String(teile[t + 1]).replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").replace(/^\s+/, "").slice(0, 160);
+          else plan.spHinweis = spBeschreibung(teile[t + 1]);
         }
       }
       plan.name = name;
