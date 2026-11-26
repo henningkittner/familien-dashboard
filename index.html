@@ -105,11 +105,8 @@
 </div>
 <div class="abf-titel">Abfahrten</div><div class="raster" id="raster"></div>
 <div id="unten"><div class="vp-bereich">
-  <h2 class="vp-titel">Vertretungsplan</h2>
+  <h2 class="vp-titel">Vertretungsplan / Schulaufgaben</h2>
   <div id="vertretung"></div>
-</div><div class="kal-bereich">
-  <h2 class="vp-titel kal-titel">Termine</h2>
-  <div id="kalender"></div>
 </div></div>
 <style>
   .vp-bereich { clear: both; padding: 0 24px 8px; overflow: hidden; }
@@ -291,7 +288,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   #wetter .w-werte { float: none !important; }
   #wetter .w-temp { font-size: 28px !important; line-height: 1.1 !important; height: auto !important; overflow: visible !important; font-weight: 600 !important; margin-bottom: 3px; }
   #wetter .w-klein { line-height: 1.35 !important; height: auto !important; font-size: 12px !important; }
-  .uhr { line-height: 60px !important; }
+  .uhr { line-height: 60px !important; margin-top: 9px; } /* mittig zur Wetter-Kachel */
   .abf-titel, .vp-titel { font-size: 19px !important; font-weight: 700 !important; color: #fff; letter-spacing: .2px; }
   .abf-titel { background: #071d4f; margin: 6px 10px 0; padding: 9px 16px 2px; border-radius: 14px 14px 0 0; }
   .abf-titel:before, .vp-titel:before { content: ""; display: inline-block; width: 5px; height: 18px; border-radius: 3px; margin-right: 9px; vertical-align: -2px; }
@@ -333,9 +330,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 </script>
 <script>
 /* Skaliert das Dashboard so, dass es genau auf den Bildschirm passt (nie scrollen).
-   Arbeitet mit transform: scale auf einer Hülle. Die Uhr-Ansicht (#ruhe) liegt außerhalb und bleibt unverändert. ES5. */
+   Arbeitet mit transform: scale auf einer Hülle. Vergrößert nur so weit, dass die Seite mindestens MIN_BREITE px breit bleibt. Die Uhr-Ansicht (#ruhe) liegt außerhalb und bleibt unverändert. ES5. */
 (function () {
-  var MIN = 0.55, MAX = 1.3, huelle = null, letzt = 0;
+  var MIN = 0.55, MAX = 1.3, MIN_BREITE = 1000, huelle = null, letzt = 0;
   function huelleBauen() {
     huelle = document.createElement("div");
     huelle.id = "alles";
@@ -354,15 +351,20 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   function einpassen() {
     if (!huelle) huelleBauen();
     var B = window.innerWidth, H = window.innerHeight, z = 1;
+    var vp = document.querySelector(".vp-bereich");
+    if (vp) vp.style.minHeight = "";
     for (var runde = 0; runde < 4; runde++) {
       huelle.style.width = (B / z) + "px";
       var h = huelle.offsetHeight; // Layout-Höhe, unabhängig von der Skalierung
-      var neu = Math.max(MIN, Math.min(MAX, H / h));
+      var neu = Math.max(MIN, Math.min(MAX, B / MIN_BREITE, H / h)); // nie schmaler als MIN_BREITE, sonst werden die Ziele unlesbar
       if (Math.abs(neu - z) < 0.005) { z = neu; break; }
       z = neu;
     }
     huelle.style.width = (B / z) + "px";
     if (huelle.offsetHeight * z > H) z = H / huelle.offsetHeight; // Sicherheit
+    // Bleibt unten Platz (z. B. leerer Vertretungsplan), wird der Vertretungsplan nach unten verlängert
+    var rest = Math.floor(H / z - huelle.offsetHeight);
+    if (vp && vp.offsetHeight && rest > 0) { vp.style.boxSizing = "border-box"; vp.style.minHeight = (vp.offsetHeight + rest) + "px"; }
     var t = "scale(" + z + ")";
     huelle.style.webkitTransform = huelle.style.transform = t;
     document.documentElement.style.height = document.body.style.height = H + "px";
@@ -394,37 +396,60 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .ziel-lauf { display: inline-block; white-space: nowrap; }
 </style>
 <script>
-/* Zu lange Ziele (z. B. "Brunnthal, Zusestraße") wandern langsam hin und her, damit man den ganzen Namen lesen kann. ES5. */
+/* Zu lange Texte (Ziele der Abfahrten, Störungsmeldung, Schulaufgaben) wandern langsam hin und her, damit man alles lesen kann.
+   Jede Zeile läuft für sich. Die Abfahrten werden jede Minute neu gezeichnet; damit der Text dabei nicht
+   an den Anfang zurückspringt, merkt sich die Laufschrift den Stand pro Text und macht nahtlos weiter. ES5. */
 (function () {
-  var altZeichne = zeichneKarte, PX_PRO_SEK = 30, PAUSE_MS = 2000;
-  zeichneKarte = function (i, inhalt) { altZeichne(i, inhalt); vorbereiten(document.getElementById("karte" + i)); };
-  function vorbereiten(karte) {
-    if (!karte) return;
-    var ziele = karte.querySelectorAll(".ziel");
-    for (var n = 0; n < ziele.length; n++) {
-      var z = ziele[n];
-      if (z.scrollWidth <= z.clientWidth + 1) continue;
-      z.innerHTML = '<span class="ziel-lauf">' + z.innerHTML + "</span>";
-      z.style.textOverflow = "clip";
-    }
+  var PX_PRO_SEK = 30, PAUSE_MS = 2500, TAKT_MS = 500, gedaechtnis = {};
+  function setze(s, x, dauer) {
+    s.style.webkitTransition = dauer ? "-webkit-transform " + dauer + "s linear" : "none";
+    s.style.transition = dauer ? "transform " + dauer + "s linear" : "none";
+    s.style.webkitTransform = s.style.transform = "translate3d(" + x + "px,0,0)";
   }
-  var hin = false;
-  function schritt() {
-    hin = !hin;
-    var spans = document.querySelectorAll(".ziel-lauf"), laengste = 0;
-    for (var n = 0; n < spans.length; n++) {
-      var s = spans[n], weg = s.scrollWidth - s.parentNode.clientWidth;
-      if (weg < 0) weg = 0;
-      var dauer = weg / PX_PRO_SEK;
-      if (dauer > laengste) laengste = dauer;
-      s.style.webkitTransition = s.style.transition = "-webkit-transform " + dauer + "s linear, transform " + dauer + "s linear";
-      var x = hin ? "translateX(-" + weg + "px)" : "translateX(0)";
-      s.style.webkitTransform = x; s.style.transform = x;
-    }
-    setTimeout(schritt, laengste * 1000 + PAUSE_MS);
+  function weiter(s, st, jetzt) { // neues Element an der Stelle fortsetzen, wo das alte war
+    var vergangen = (jetzt - st.start) / 1000, rest = st.dauer - vergangen;
+    var anteil = st.dauer ? Math.min(1, Math.max(0, vergangen / st.dauer)) : 1;
+    var x = st.hin ? -st.weg * anteil : -st.weg * (1 - anteil);
+    setze(s, Math.round(x), 0);
+    if (rest > 0.05) setTimeout(function () { setze(s, st.hin ? -st.weg : 0, rest); }, 30);
   }
-  setTimeout(schritt, PAUSE_MS);
-  aktualisiere();
+  function takt() {
+    try {
+      var ruhe = document.getElementById("ruhe");
+      if (ruhe && ruhe.style.display === "block") return; // Uhr-Ansicht: nichts bewegen
+      var jetzt = Date.now(), boxen = document.querySelectorAll(".ziel, .st-box, .vp-sa-titel"), gezaehlt = {}, benutzt = {};
+      for (var n = 0; n < boxen.length; n++) {
+        var z = boxen[n], breite = z.clientWidth;
+        var text = (z.textContent || "").replace(/\s+/g, " ");
+        gezaehlt[text] = (gezaehlt[text] || 0) + 1;
+        var schl = gezaehlt[text] + "|" + text;
+        if (!breite) continue; // versteckt
+        var s = z.firstChild && z.firstChild.className === "ziel-lauf" ? z.firstChild : null;
+        if (!s) {
+          if (z.scrollWidth <= breite + 1) continue;
+          z.innerHTML = '<span class="ziel-lauf">' + z.innerHTML + "</span>";
+          z.style.textOverflow = "clip";
+          s = z.firstChild;
+        }
+        benutzt[schl] = true;
+        var weg = s.scrollWidth - breite, st = gedaechtnis[schl];
+        if (!s._lauf) {
+          s._lauf = true;
+          if (st && Math.abs(st.weg - weg) <= 2) { weiter(s, st, jetzt); continue; }
+          st = gedaechtnis[schl] = { hin: false, start: jetzt, dauer: 0, weg: weg, bis: jetzt + PAUSE_MS };
+          setze(s, 0, 0); continue;
+        }
+        if (weg <= 1) { if (st.hin) { st.hin = false; setze(s, 0, 0); } st.weg = 0; continue; }
+        if (Math.abs(st.weg - weg) > 2) { st.weg = weg; if (st.hin && jetzt >= st.start + st.dauer * 1000) setze(s, -weg, 0); }
+        if (jetzt < st.bis) continue;
+        st.hin = !st.hin; st.weg = weg; st.dauer = weg / PX_PRO_SEK; st.start = jetzt;
+        setze(s, st.hin ? -weg : 0, st.dauer);
+        st.bis = jetzt + st.dauer * 1000 + PAUSE_MS;
+      }
+      for (var k in gedaechtnis) if (!benutzt[k] && jetzt - gedaechtnis[k].bis > 120000) delete gedaechtnis[k];
+    } catch (e) {}
+  }
+  setInterval(takt, TAKT_MS);
 })();
 
 </script>
@@ -444,8 +469,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .hinweis { padding: 3px 0 !important; line-height: 29px; min-height: 46px; box-sizing: border-box; border-top: 1px solid #2a3444; }
 </style>
 <style>
-  #fokus-zurueck { display: none; float: left; margin: 8px 14px 0 0; padding: 6px 14px; border-radius: 18px; background: rgba(255,255,255,.14); color: #fff; font-size: 17px; font-weight: 600; cursor: pointer; }
+  #fokus-zurueck { display: none; float: right; margin: 8px 0 0 18px; padding: 6px 14px; border-radius: 18px; background: rgba(255,255,255,.14); color: #fff; font-size: 17px; font-weight: 600; cursor: pointer; }
   body.fokus-abf #fokus-zurueck, body.fokus-vp #fokus-zurueck { display: block; }
+  #fokus-zurueck { display: none !important; } /* Mina 24.11.: kein Zurück-Knopf, Antippen führt zurück */
   body.fokus-abf .vp-bereich, body.fokus-abf .fuss { display: none !important; }
   body.fokus-vp .abf-titel, body.fokus-vp #raster, body.fokus-vp .fuss { display: none !important; }
   body.fokus-abf .karte { width: -webkit-calc(50% - 8px) !important; width: calc(50% - 8px) !important; }
@@ -503,6 +529,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   #stoerungen .st-warn { color: #ffc933; font-weight: 700; margin-right: 8px; }
   #stoerungen .linie { display: inline-block !important; float: none !important; min-width: 0; padding: 0 7px; margin: 0 6px 0 0; font-size: 14px; line-height: 21px; border-radius: 5px; background: #fff; color: #0d3082; font-weight: 700; vertical-align: 1px; }
   #stoerungen .st-text { font-weight: 500; }
+  #stoerungen .st-box { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   #stoerungen .st-zahl { float: right; color: #c9a0a0; font-size: 13px; margin-left: 10px; }
 </style>
 <script>
@@ -547,7 +574,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 /* Störungsmeldungen unter den Abfahrten. Quelle: dieselben MVV-Abfahrtsdaten (jede Abfahrt trägt "infos").
    Es werden nur Meldungen zu den Linien/Richtungen der Karten gezeigt. Eine feste Zeile, bei mehreren wechselnd. ES5. */
 (function () {
-  var proStation = {}, meldungen = [], nr = 0, timer = null, WECHSEL_SEK = 8;
+  var proStation = {}, meldungen = [], nr = 0, timer = null, WECHSEL_SEK = 20;
   var leiste = document.createElement("div");
   leiste.id = "stoerungen";
   document.getElementById("raster").appendChild(leiste);
@@ -608,7 +635,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     for (var i = 0; i < meldungen.length; i++) {
       if (!fokus && i !== nr) continue;
       html += '<div class="st-zeile">' + (!fokus && meldungen.length > 1 ? '<span class="st-zahl">' + (i + 1) + "/" + meldungen.length + "</span>" : "") +
-        '<span class="st-warn">&#9888;</span>' + schild(meldungen[i]) + '<span class="st-text">' + esc(meldungen[i].text) + "</span></div>";
+        (fokus ? "" : '<div class="st-box">') + '<span class="st-warn">&#9888;</span>' + schild(meldungen[i]) + '<span class="st-text">' + esc(meldungen[i].text) + "</span>" + (fokus ? "" : "</div>") + "</div>";
     }
     leiste.className = fokus ? "stoerung offen" : "stoerung";
     leiste.innerHTML = html;
@@ -619,98 +646,122 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
-<style>
-  #unten { display: -webkit-flex; display: flex; -webkit-align-items: stretch; align-items: stretch; clear: both; }
-  #unten .vp-bereich { -webkit-flex: 2.1; flex: 2.1; min-width: 0; margin-right: 0 !important; }
-  .kal-bereich { -webkit-flex: 1; flex: 1; min-width: 0; background: #14201a; border-radius: 14px; margin: 10px 10px 4px 10px; padding: 9px 12px 8px; overflow: hidden; cursor: pointer; }
-  .kal-titel:before { background: #30d158 !important; }
-  #kalender .kal-tag { font-size: 13px; font-weight: 700; color: #8f9bb0; text-transform: uppercase; letter-spacing: .5px; margin: 8px 0 3px; }
-  #kalender .kal-tag:first-child { margin-top: 2px; }
-  #kalender .kal-tag.heute { color: #30d158; }
-  #kalender .kal-termin { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; background: #1d2c24; border-radius: 8px; padding: 5px 9px; margin-bottom: 4px; font-size: 16px; }
-  #kalender .kal-termin.laeuft { background: #24452f; }
-  #kalender .kal-punkt { width: 9px; height: 9px; border-radius: 5px; margin-right: 8px; -webkit-flex-shrink: 0; flex-shrink: 0; }
-  #kalender .kal-zeit { color: #b9c4d6; font-size: 14px; font-weight: 600; width: 88px; -webkit-flex-shrink: 0; flex-shrink: 0; font-variant-numeric: tabular-nums; }
-  #kalender .kal-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-  #kalender .kal-leer, #kalender .kal-mehr { color: #8f9bb0; font-size: 14px; padding: 4px 0; }
-  body.fokus-abf .kal-bereich, body.fokus-vp .kal-bereich, body.fokus-wetter .kal-bereich { display: none !important; }
-  body.fokus-kal .abf-titel, body.fokus-kal #raster, body.fokus-kal .vp-bereich, body.fokus-kal .fuss, body.fokus-kal #wetter, body.fokus-kal .stand, body.fokus-kal #kopf-datum { display: none !important; }
-  body.fokus-kal #fokus-zurueck { display: block; }
-  body.fokus-kal #kalender { -webkit-column-count: 2; column-count: 2; -webkit-column-gap: 20px; column-gap: 20px; }
-  body.fokus-kal #kalender .kal-termin { -webkit-column-break-inside: avoid; break-inside: avoid; }
-</style>
 <script>
-/* Familienkalender: Termine kommen vom Kurzbefehl im Link-Hash (&kal=<base64>), eine Zeile pro Termin:
-   Start | Ende | Ganztägig | Kalender | Titel   (Datum als yyyy-MM-dd HH:mm). Gespeichert nur auf dem iPad. ES5. */
+/* Animierte Wettersymbole für die Uhr-Ansicht. SVG mit SMIL-Animation (läuft in Safari ab iOS 9), ruhig und langsam. ES5.
+   WetterAnim(code, tag) liefert ein SVG (viewBox 0 0 64 64) zum aktuellen Open-Meteo-Wettercode. */
 (function () {
-  var SPEICHER = "kalender_v1", MAX_ZEILEN = 9, MAX_FOKUS = 40;
-  var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
-  var FARBEN = ["#ff9f0a", "#30d158", "#64d2ff", "#ff375f", "#bf5af2", "#ffd60a", "#0a84ff", "#ac8e68"];
-  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function zwei(n) { return (n < 10 ? "0" : "") + n; }
-  function datum(s) { // "2026-11-24 08:30" oder "24.11.2026, 08:30"
-    var m = /(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/.exec(s || "");
-    if (m) return new Date(+m[1], m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)).getTime();
-    m = /(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\D+(\d{1,2}):(\d{2}))?/.exec(s || "");
-    return m ? new Date(+m[3], m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0)).getTime() : null;
+  var GELB = "#FFC933", WOLKE = "#E6E8EE", WOLKE_N = "#B9BFCA", BLAU = "#5AAEF5", MOND = "#F4F1E3";
+  function wolkePfad(f) { return '<path fill="' + f + '" d="M17 44h29a9.5 9.5 0 0 0 .6-19A13 13 0 0 0 21.5 22 10.5 10.5 0 0 0 17 44z"/>'; }
+  function ziehen(inhalt, dx, dy, s, weite, dauer) { // Wolke zieht sanft hin und her
+    return '<g transform="translate(' + dx + "," + dy + ") scale(" + s + ')"><g>' + inhalt +
+      '<animateTransform attributeName="transform" type="translate" values="0 0;' + weite + ' 0;0 0" dur="' + dauer + 's" repeatCount="indefinite" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"/></g></g>';
   }
-  function farbe(name) { var h = 0; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 997; return FARBEN[h % FARBEN.length]; }
-  function ausHash() {
-    var m = location.hash.match(/[#&]kal=([^&]*)/);
-    if (!m) return null;
-    var roh = decodeURIComponent(m[1]).replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/"), text = "";
-    if (roh) text = decodeURIComponent(escape(atob(roh)));
-    var zeilen = text.split(/\r?\n/), termine = [];
-    for (var i = 0; i < zeilen.length; i++) {
-      var f = zeilen[i].split("|");
-      if (f.length < 5) continue;
-      var start = datum(f[0]), ende = datum(f[1]) || start;
-      if (!start) continue;
-      var ganz = /^\s*(ja|yes|true|1|wahr)\s*$/i.test(f[2]);
-      if (ganz && ende <= start) ende = start + 86400000;
-      termine.push({ start: start, ende: ende, ganz: ganz, kal: f[3].replace(/^\s+|\s+$/g, ""), titel: f.slice(4).join("|").replace(/^\s+|\s+$/g, "") });
+  function sonne(cx, cy, r) {
+    var strahlen = "";
+    for (var i = 0; i < 8; i++) {
+      var w = i * Math.PI / 4, a = r + 4, b = r + 9;
+      strahlen += '<line x1="' + (cx + a * Math.cos(w)).toFixed(1) + '" y1="' + (cy + a * Math.sin(w)).toFixed(1) + '" x2="' + (cx + b * Math.cos(w)).toFixed(1) +
+        '" y2="' + (cy + b * Math.sin(w)).toFixed(1) + '"/>';
     }
-    termine.sort(function (a, b) { return a.start - b.start || (b.ganz ? 1 : 0) - (a.ganz ? 1 : 0); });
-    return { zeit: Date.now(), termine: termine };
+    return '<g stroke="' + GELB + '" stroke-width="3.5" stroke-linecap="round">' + strahlen +
+      '<animateTransform attributeName="transform" type="rotate" from="0 ' + cx + " " + cy + '" to="360 ' + cx + " " + cy + '" dur="40s" repeatCount="indefinite"/></g>' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + GELB + '"><animate attributeName="opacity" values="1;.8;1" dur="5s" repeatCount="indefinite"/></circle>';
   }
-  function laden() { try { return JSON.parse(localStorage.getItem(SPEICHER)); } catch (e) { return null; } }
-  function speichern(d) { try { localStorage.setItem(SPEICHER, JSON.stringify(d)); } catch (e) {} }
-  function tagBeginn(t) { var d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
-  function tagTitel(t, heute) {
-    var diff = Math.round((t - heute) / 86400000), d = new Date(t);
-    var name = diff === 0 ? "Heute" : diff === 1 ? "Morgen" : WT[d.getDay()];
-    return name + " · " + d.getDate() + "." + (d.getMonth() + 1) + ".";
+  function mond(cx, cy, r) {
+    return '<path fill="' + MOND + '" d="M' + (cx + r * 0.25) + " " + (cy - r) + "A" + r + " " + r + " 0 1 0 " + (cx + r) + " " + (cy + r * 0.35) +
+      "A" + (r * 0.85) + " " + (r * 0.85) + " 0 0 1 " + (cx + r * 0.25) + " " + (cy - r) + 'z"/>';
   }
-  function zeichnen() {
-    var el = document.getElementById("kalender");
-    if (!el) return;
-    var d = laden(), jetzt = Date.now(), heute = tagBeginn(jetzt), fokus = /fokus-kal/.test(document.body.className);
-    if (!d) { el.innerHTML = '<div class="kal-leer">Noch keine Termine. Bitte den Kurzbefehl einmal starten.</div>'; return; }
-    var max = fokus ? MAX_FOKUS : MAX_ZEILEN, zeilen = 0, html = "", letzterTag = null, rest = 0;
-    for (var i = 0; i < d.termine.length; i++) {
-      var t = d.termine[i];
-      if (t.ende <= jetzt) continue;
-      var tag = Math.max(tagBeginn(t.start), heute);
-      var braucht = tag !== letzterTag ? 2 : 1;
-      if (zeilen + braucht > max) { rest++; continue; }
-      if (tag !== letzterTag) { html += '<div class="kal-tag' + (tag === heute ? " heute" : "") + '">' + tagTitel(tag, heute) + "</div>"; letzterTag = tag; zeilen++; }
-      var zeit = t.ganz ? "ganztägig" : (function (s) { var x = new Date(s); return zwei(x.getHours()) + ":" + zwei(x.getMinutes()); })(Math.max(t.start, tag));
-      var laeuft = !t.ganz && t.start <= jetzt && t.ende > jetzt;
-      html += '<div class="kal-termin' + (laeuft ? " laeuft" : "") + '"><span class="kal-punkt" style="background:' + farbe(t.kal) + '"></span>' +
-        '<span class="kal-zeit">' + zeit + '</span><span class="kal-text">' + esc(t.titel || "(ohne Titel)") + "</span></div>";
-      zeilen++;
+  function stern(x, y, g, start) {
+    return '<path fill="' + MOND + '" d="M' + x + " " + (y - g) + "L" + (x + g * 0.3) + " " + (y - g * 0.3) + "L" + (x + g) + " " + y + "L" + (x + g * 0.3) + " " + (y + g * 0.3) +
+      "L" + x + " " + (y + g) + "L" + (x - g * 0.3) + " " + (y + g * 0.3) + "L" + (x - g) + " " + y + "L" + (x - g * 0.3) + " " + (y - g * 0.3) + 'z">' +
+      '<animate attributeName="opacity" values="1;.2;1" dur="4s" begin="' + start + 's" repeatCount="indefinite"/></path>';
+  }
+  function regen(xs, dauer) {
+    var s = "";
+    for (var i = 0; i < xs.length; i++) {
+      var b = (i * dauer / xs.length).toFixed(2);
+      s += '<line x1="' + xs[i] + '" y1="46" x2="' + (xs[i] - 2) + '" y2="52" stroke="' + BLAU + '" stroke-width="3" stroke-linecap="round" opacity="0">' +
+        '<animateTransform attributeName="transform" type="translate" values="0 0;-3 11" dur="' + dauer + 's" begin="' + b + 's" repeatCount="indefinite"/>' +
+        '<animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.7;1" dur="' + dauer + 's" begin="' + b + 's" repeatCount="indefinite"/></line>';
     }
-    if (!html) html = '<div class="kal-leer">Keine Termine in den nächsten Tagen</div>';
-    if (rest) html += '<div class="kal-mehr">+ ' + rest + " weitere" + (fokus ? "" : " · antippen") + "</div>";
-    el.innerHTML = html;
+    return s;
   }
-  try {
-    var neu = ausHash();
-    if (neu) speichern(neu);
-  } catch (e) {}
-  window.Kalender = { zeichnen: zeichnen };
-  zeichnen();
-  setInterval(zeichnen, 60000);
+  function schnee() {
+    var s = "", xs = [20, 30, 40, 26, 36];
+    for (var i = 0; i < xs.length; i++) {
+      var b = (i * 0.9).toFixed(1);
+      s += '<circle cx="' + xs[i] + '" cy="46" r="2.4" fill="#FFFFFF" opacity="0">' +
+        '<animateTransform attributeName="transform" type="translate" values="0 0;2 5;-1 10;1 15" dur="4.5s" begin="' + b + 's" repeatCount="indefinite"/>' +
+        '<animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.15;.75;1" dur="4.5s" begin="' + b + 's" repeatCount="indefinite"/></circle>';
+    }
+    return s;
+  }
+  function blitz() {
+    return '<path fill="' + GELB + '" opacity="0" d="M33 42l-7 11h6l-3 9 10-13h-6l4-7z">' +
+      '<animate attributeName="opacity" values="0;0;1;.2;1;0;0" keyTimes="0;.6;.63;.66;.7;.76;1" dur="7s" repeatCount="indefinite"/></path>';
+  }
+  function nebel(f) {
+    return '<g stroke="' + f + '" stroke-width="3.5" stroke-linecap="round">' +
+      '<line x1="14" y1="49" x2="50" y2="49"><animateTransform attributeName="transform" type="translate" values="0 0;4 0;0 0" dur="9s" repeatCount="indefinite"/></line>' +
+      '<line x1="20" y1="56" x2="44" y2="56"><animateTransform attributeName="transform" type="translate" values="0 0;-4 0;0 0" dur="11s" repeatCount="indefinite"/></line></g>';
+  }
+  function svg(inhalt) { return '<svg viewBox="0 0 64 64" width="100%" height="100%" overflow="visible">' + inhalt + "</svg>"; }
+  window.WetterAnim = function (c, tag) {
+    var w = tag ? WOLKE : WOLKE_N, wolke = wolkePfad(w);
+    if (c === 0) return tag ? svg(sonne(32, 32, 11)) : svg(mond(30, 32, 15) + stern(50, 16, 4, 0) + stern(46, 46, 2.5, 2) + stern(12, 14, 2, 1));
+    if (c === 1 || c === 2) return svg((tag ? sonne(40, 22, 8) : mond(40, 22, 11) + stern(14, 12, 2.5, 1)) + ziehen(wolke, -4, 8, c === 1 ? 0.85 : 1, 8, 14));
+    if (c === 3) return svg(ziehen(wolkePfad(WOLKE_N), 18, 2, 0.7, -6, 17) + ziehen(wolke, -4, 6, 1, 8, 13));
+    if (c === 45 || c === 48) return svg(ziehen(wolke, 0, -4, 1, 5, 15) + nebel(WOLKE_N));
+    if ((c >= 51 && c <= 57) || (c >= 80 && c <= 82 && tag)) return svg((tag ? sonne(42, 18, 7) : "") + regen([26, 38], 1.6) + ziehen(wolke, -2, -2, 1, 5, 12));
+    if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return svg(regen([21, 29, 37, 45], 1.2) + ziehen(wolke, 0, -2, 1, 5, 12));
+    if ((c >= 71 && c <= 77) || c === 85 || c === 86) return svg(schnee() + ziehen(wolke, 0, -2, 1, 5, 14));
+    if (c >= 95) return svg(regen([22, 44], 1.1) + blitz() + ziehen(wolke, 0, -2, 1, 5, 12));
+    return svg(ziehen(wolke, 0, 0, 1, 6, 14));
+  };
+  /* SMIL lief auf Minas iPad (iOS 15) nicht. Darum: die <animate>-Angaben auslesen, entfernen und per setInterval selbst abspielen. */
+  var laeufer = [], timer = null, t0 = new Date().getTime();
+  function zahlen(s) { var a = s.replace(/^\s+|\s+$/g, "").split(/[\s,]+/), r = []; for (var i = 0; i < a.length; i++) r.push(parseFloat(a[i])); return r; }
+  function sanft(x) { return x * x * (3 - 2 * x); }
+  function wert(l, p) {
+    var v = l.werte, n = v.length - 1, k = l.keys, i = 0;
+    if (n <= 0) return v[0];
+    if (!k) { k = []; for (var j = 0; j <= n; j++) k.push(j / n); }
+    while (i < n - 1 && p > k[i + 1]) i++;
+    var f = (p - k[i]) / ((k[i + 1] - k[i]) || 1); f = Math.max(0, Math.min(1, f));
+    if (l.spline) f = sanft(f);
+    var a = v[i], b = v[i + 1], r = [];
+    for (var m = 0; m < a.length; m++) r.push(a[m] + (b[m] - a[m]) * f);
+    return r;
+  }
+  function schritt() {
+    if (!/fokus-wetter/.test(document.body.className)) return; // nur zeichnen, wenn die Ansicht offen ist
+    var t = (new Date().getTime() - t0) / 1000;
+    for (var i = 0; i < laeufer.length; i++) {
+      var l = laeufer[i], tt = t - l.begin;
+      if (tt < 0) continue;
+      var w = wert(l, (tt % l.dur) / l.dur);
+      if (l.art === "translate") l.el.setAttribute("transform", "translate(" + w[0].toFixed(2) + " " + (w[1] || 0).toFixed(2) + ")");
+      else if (l.art === "rotate") l.el.setAttribute("transform", "rotate(" + w[0].toFixed(1) + " " + (w[1] || 0) + " " + (w[2] || 0) + ")");
+      else l.el.setAttribute(l.attr, w[0].toFixed(3));
+    }
+  }
+  window.WetterAnimLaufen = function (behaelter) {
+    laeufer = [];
+    var an = behaelter.querySelectorAll("animate, animateTransform"), liste = [];
+    for (var i = 0; i < an.length; i++) liste.push(an[i]);
+    for (var j = 0; j < liste.length; j++) {
+      var a = liste[j], werte = [], vs = a.getAttribute("values");
+      if (vs) { var teile = vs.split(";"); for (var k = 0; k < teile.length; k++) werte.push(zahlen(teile[k])); }
+      else werte = [zahlen(a.getAttribute("from")), zahlen(a.getAttribute("to"))];
+      var kt = a.getAttribute("keyTimes"), keys = null;
+      if (kt) { keys = []; var kk = kt.split(";"); for (var m = 0; m < kk.length; m++) keys.push(parseFloat(kk[m])); }
+      laeufer.push({ el: a.parentNode, art: a.tagName === "animateTransform" ? a.getAttribute("type") : "", attr: a.getAttribute("attributeName"),
+        werte: werte, keys: keys, dur: parseFloat(a.getAttribute("dur")), begin: parseFloat(a.getAttribute("begin") || "0"), spline: a.getAttribute("calcMode") === "spline" });
+      a.parentNode.removeChild(a);
+    }
+    if (!timer) timer = setInterval(schritt, 60);
+    schritt();
+  };
 })();
 
 </script>
@@ -758,7 +809,10 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   }
   var GROESSE = 52;
   function svg(inhalt) { return '<svg viewBox="0 0 64 64" width="' + GROESSE + '" height="' + GROESSE + '">' + inhalt + "</svg>"; }
-  function symbolG(c, tag, g) { var alt = GROESSE; GROESSE = g; var s = symbol(c, tag); GROESSE = alt; return s; }
+  function symbolG(c, tag, g) { // Detailansicht: animiert (wetter_anim.js), sonst statisch
+    if (window.WetterAnim) return window.WetterAnim(c, !!tag).replace('width="100%" height="100%"', 'width="' + g + '" height="' + g + '"');
+    var alt = GROESSE; GROESSE = g; var s = symbol(c, tag); GROESSE = alt; return s;
+  }
   function symbol(c, tag) {
     var w = tag ? WOLKE : WOLKE_N;
     if (c === 0) return tag ? svg(sonne(32, 32, 11)) : svg(mond(30, 32, 15) + stern(50, 16, 4) + stern(46, 46, 2.5));
@@ -793,6 +847,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var el = document.getElementById("wetter");
     if (!el || !d || !d.current) return;
     var c = d.current.weather_code, tag = d.current.is_day, t = d.daily;
+    window.WetterJetzt = { code: c, tag: !!tag, temp: d.current.temperature_2m, text: text(c, tag), hoch: t.temperature_2m_max[0], tief: t.temperature_2m_min[0] }; // für die Uhr-Ansicht
     var regen = t.precipitation_probability_max ? t.precipitation_probability_max[0] : null;
     el.innerHTML = '<div class="w-symbol">' + symbol(c, tag) + '</div><div class="w-werte"><div class="w-temp">' + r(d.current.temperature_2m) +
       '</div><div class="w-klein">' + text(c, tag) + '</div><div class="w-klein">H: ' + r(t.temperature_2m_max[0]) + " &nbsp;T: " + r(t.temperature_2m_min[0]) +
@@ -827,8 +882,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     for (var j = start; j < Math.min(start + 12, h.time.length); j++) {
       var p = h.precipitation_probability ? h.precipitation_probability[j] : null;
       html += '<div class="wd-stunde"><div class="wd-s-zeit">' + (j === start ? "Jetzt" : parseInt(h.time[j].substr(11, 2), 10) + " Uhr") + "</div>" +
-        symbolG(h.weather_code[j], h.is_day[j], 40) + '<div class="wd-s-regen">' + (p != null && p >= 20 ? p + " %" : "&nbsp;") + "</div>" +
-        '<div class="wd-s-temp">' + r(h.temperature_2m[j]) + "</div></div>";
+        symbolG(j === start ? c.weather_code : h.weather_code[j], h.is_day[j], 40) + '<div class="wd-s-regen">' + (p != null && p >= 20 ? p + " %" : "&nbsp;") + "</div>" +
+        '<div class="wd-s-temp">' + r(j === start ? c.temperature_2m : h.temperature_2m[j]) + "</div></div>";
     }
     html += "</div></div>";
     // 7 Tage mit Temperatur-Balken
@@ -843,22 +898,430 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
         '<div class="wd-t-regen">' + (pm != null && pm >= 20 ? pm + " %" : "") + '</div><div class="wd-t-min">' + r(t.temperature_2m_min[m]) +
         '</div><div class="wd-balken"><div style="left:' + links + "%;width:" + Math.max(breite, 4) + '%"></div></div><div class="wd-t-max">' + r(t.temperature_2m_max[m]) + "</div></div>";
     }
-    html += '</div><div class="wd-quelle">Daten: Open-Meteo · Antippen für Übersicht</div>';
+    html += '</div><div class="wd-quelle">' + (d.gemessen ? "Jetzt: DWD-Messung Oberhaching (Bright Sky) · Vorhersage: Open-Meteo" : "Daten: Open-Meteo") + " · Antippen für Übersicht</div>";
     el.innerHTML = html;
+    if (window.WetterAnimLaufen) window.WetterAnimLaufen(el);
     if (window.Einpassen && /fokus-wetter/.test(document.body.className)) window.Einpassen();
   }
   function zwei(n) { return (n < 10 ? "0" : "") + n; }
-  function laden() {
+  // „Jetzt“ aus echten DWD-Messwerten (Bright Sky, Station Oberhaching-Laufzorn, Lücken mit München-Stadt).
+  // Open-Meteo liefert nur Modellwerte und meldete z. B. Schnee, obwohl es trocken war (Mina 26.11.). Vorhersage bleibt Open-Meteo.
+  var URL_BS = "https://api.brightsky.dev/current_weather?lat=48.066&lon=11.616";
+  var om = null, bs = null;
+  function bsCode(w) {
+    var i = w.icon || "", c = w.condition || "";
+    if (c === "thunderstorm" || i === "thunderstorm") return 95;
+    if (c === "snow" || i === "snow") return 73;
+    if (c === "rain" || c === "sleet" || c === "hail" || i === "rain" || i === "sleet" || i === "hail") return (w.precipitation_60 != null && w.precipitation_60 < 0.3) ? 53 : 63;
+    if (c === "fog" || i === "fog") return 45;
+    if (/^clear/.test(i)) return 0;
+    if (/^partly-cloudy/.test(i)) return 2;
+    if (i === "cloudy") return 3;
+    return null; // z. B. "wind": Modellwert behalten
+  }
+  function mischen() {
+    if (!om) return;
+    var d = JSON.parse(JSON.stringify(om)), w = bs, alt = Date.now() - (w && w.timestamp ? Date.parse(w.timestamp) : 0);
+    if (w && alt < 2 * 3600 * 1000) { // nur frische Messwerte (höchstens 2 Std alt)
+      var code = bsCode(w);
+      if (code != null) d.current.weather_code = code;
+      if (w.temperature != null) d.current.temperature_2m = w.temperature;
+      if (w.relative_humidity != null) d.current.relative_humidity_2m = w.relative_humidity;
+      if (w.wind_speed_10 != null) d.current.wind_speed_10m = w.wind_speed_10;
+      d.gemessen = true;
+    }
+    zeichnen(d);
+  }
+  function holen(url, fertig) {
     var x = new XMLHttpRequest();
-    x.open("GET", URL_W, true);
+    x.open("GET", url, true);
     x.onreadystatechange = function () {
-      if (x.readyState === 4 && x.status === 200) { try { zeichnen(JSON.parse(x.responseText)); } catch (e) {} }
+      if (x.readyState === 4 && x.status === 200) { try { fertig(JSON.parse(x.responseText)); } catch (e) {} }
     };
     x.send();
+  }
+  function laden() {
+    holen(URL_W, function (d) { om = d; mischen(); });
+    holen(URL_BS, function (d) { if (d && d.weather) { bs = d.weather; mischen(); } });
   }
   window.WetterTest = { symbol: symbol, text: text };
   laden();
   setInterval(laden, 15 * 60 * 1000);
+})();
+
+</script>
+<style>html:-webkit-full-screen { width: 100%; height: 100%; background: #10151c; } :-webkit-full-screen-ancestor { background: #10151c; } html:-webkit-full-screen .kopf, html.vb-rand .kopf { padding-left: 96px !important; padding-top: 36px !important; } html:-webkit-full-screen #kopf-datum, html.vb-rand #kopf-datum { position: relative; top: -8px; } html:-webkit-full-screen .stand, html.vb-rand .stand { margin-left: -70px; }</style>
+<script>
+/* Vollbild: beim Antippen wechselt Safari (iPad ab iPadOS 12) in den Vollbildmodus, ohne Adressleiste.
+   Geht nur durch eine Berührung, nicht automatisch. Fällt der Vollbildmodus weg (z. B. neuer Tab vom Kurzbefehl),
+   holt ihn das nächste Antippen zurück. ?ohnevollbild=1 schaltet das ab. ES5.
+   Nur beim "click" anfordern (wie auf der Testseite), nicht zusätzlich bei touchend: eine zweite Anforderung
+   während des Übergangs bricht den Vollbildmodus auf dem iPad wieder ab. */
+(function () {
+  if (/[?&]ohnevollbild=1/.test(location.search)) return;
+  var el = document.documentElement;
+  var anfordern = el.webkitRequestFullscreen || el.requestFullscreen || el.webkitRequestFullScreen;
+  if (!anfordern) return;
+  var gesperrtBis = 0;
+  // Hintergrund im Vollbild über die ganze Höhe (sonst bleibt unten ein weißer Streifen)
+  try { el.style.backgroundColor = window.getComputedStyle(document.body).backgroundColor || "#10151c"; } catch (e) {}
+  function istVoll() { return !!(document.webkitFullscreenElement || document.fullscreenElement || document.webkitCurrentFullScreenElement); }
+  document.addEventListener("click", function () {
+    if (istVoll() || Date.now() < gesperrtBis) return;
+    gesperrtBis = Date.now() + 2000;
+    try { var p = anfordern.call(el); if (p && p["catch"]) p["catch"](function () {}); } catch (e) {}
+  }, false);
+  function neu() {
+    gesperrtBis = 0;
+    if (window.Einpassen) { window.Einpassen(); setTimeout(window.Einpassen, 400); setTimeout(window.Einpassen, 1200); }
+  }
+  // Öffnet der Kurzbefehl die Seite neu, während Safari noch im Vollbild ist, greift :-webkit-full-screen nicht
+  // (die neue Seite ist nicht das Vollbild-Element), Safaris X liegt dann über dem Datum. Deshalb zusätzlich:
+  // füllt die Seite den ganzen Bildschirm (keine Safari-Leiste), Klasse vb-rand setzen.
+  function rand() {
+    var w = screen.width, h = screen.height, quer = window.innerWidth > window.innerHeight;
+    var bildschirmHoehe = quer ? Math.min(w, h) : Math.max(w, h);
+    var voll = istVoll() || window.innerHeight >= bildschirmHoehe - 2;
+    var c = el.className.replace(/\s*\bvb-rand\b/g, "");
+    el.className = voll ? (c + " vb-rand") : c;
+  }
+  rand();
+  window.addEventListener("resize", function () { rand(); setTimeout(rand, 500); }, false);
+  setInterval(rand, 5000);
+  document.addEventListener("fullscreenchange", rand, false);
+  document.addEventListener("webkitfullscreenchange", rand, false);
+  document.addEventListener("fullscreenchange", neu, false);
+  document.addEventListener("webkitfullscreenchange", neu, false);
+})();
+
+</script>
+<div id="ruhe" class="h-wolken"><div id="aod-himmel"><div class="hs-sonne"></div><div class="hs-sterne"></div><div class="hw hw1"></div><div class="hw hw2"></div><div class="hw hw3"></div><div class="hw hw4"></div><div class="hw hw5"></div><div class="hn hn1"></div><div class="hn hn2"></div><canvas id="aod-schnee"></canvas><div class="hs-blitz"></div></div><div id="aod"><div id="aod-zeit"></div><div id="aod-datum"></div><div id="aod-ort">Unterhaching</div><div id="aod-wtemp"></div><div id="aod-wtext"></div><div id="aod-whl"></div><div id="aod-hinweise"></div><div id="aod-entfall"></div></div></div>
+<style>
+  /* Uhr-Ansicht im Stil eines Wetter-App-Kopfs: dunkler, wetterabhängiger Himmel, gedimmt */
+  #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; overflow: hidden; }
+  #aod-himmel { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; opacity: .5; }
+  #aod-himmel > div { position: absolute; }
+  .hw, .hn, .hs-sonne, .hs-sterne, .hs-blitz { display: none; }
+  .h-klar-tag #aod-himmel { background: -webkit-linear-gradient(top, #1f5fa8, #5d97d2); background: linear-gradient(#1f5fa8, #5d97d2); }
+  .h-klar-nacht #aod-himmel { background: -webkit-linear-gradient(top, #03060d, #101b30); background: linear-gradient(#03060d, #101b30); }
+  .h-wolken-tag #aod-himmel { background: -webkit-linear-gradient(top, #47566a, #76838f); background: linear-gradient(#47566a, #76838f); }
+  .h-wolken-nacht #aod-himmel, .h-nebel-nacht #aod-himmel { background: -webkit-linear-gradient(top, #141a24, #2a323e 65%, #222833); background: linear-gradient(#141a24, #2a323e 65%, #222833); }
+  .h-nebel-tag #aod-himmel { background: -webkit-linear-gradient(top, #5e656d, #868c92); background: linear-gradient(#5e656d, #868c92); }
+  .h-regen-tag #aod-himmel, .h-gewitter-tag #aod-himmel { background: -webkit-linear-gradient(top, #39434f, #59636e); background: linear-gradient(#39434f, #59636e); }
+  .h-regen-nacht #aod-himmel, .h-gewitter-nacht #aod-himmel { background: -webkit-linear-gradient(top, #0e1218, #1f252e); background: linear-gradient(#0e1218, #1f252e); }
+  .h-schnee-tag #aod-himmel { background: -webkit-linear-gradient(top, #6c7784, #9aa4ae); background: linear-gradient(#6c7784, #9aa4ae); }
+  .h-schnee-nacht #aod-himmel { background: -webkit-linear-gradient(top, #181d25, #313843); background: linear-gradient(#181d25, #313843); }
+  /* Sonne (Tag, klar) und Sterne (Nacht, klar) */
+  .h-klar-tag .hs-sonne { display: block; left: -160px; top: -160px; width: 620px; height: 620px; background: -webkit-radial-gradient(center, circle, rgba(255,236,170,.55), rgba(255,236,170,0) 65%); background: radial-gradient(circle, rgba(255,236,170,.55), rgba(255,236,170,0) 65%); }
+  .h-klar-nacht .hs-sterne { display: block; left: 0; top: 0; right: 0; bottom: 0; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='310' height='260'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='22' cy='30' r='1.1'/%3E%3Ccircle cx='140' cy='14' r='.8'/%3E%3Ccircle cx='250' cy='60' r='1.3'/%3E%3Ccircle cx='80' cy='120' r='.7'/%3E%3Ccircle cx='190' cy='150' r='1'/%3E%3Ccircle cx='290' cy='200' r='.8'/%3E%3Ccircle cx='40' cy='220' r='1.2'/%3E%3Ccircle cx='150' cy='240' r='.7'/%3E%3C/g%3E%3C/svg%3E"); -webkit-animation: hs-funkeln 7s ease-in-out infinite alternate; animation: hs-funkeln 7s ease-in-out infinite alternate; }
+  @-webkit-keyframes hs-funkeln { from { opacity: .5; } to { opacity: 1; } }
+  @keyframes hs-funkeln { from { opacity: .5; } to { opacity: 1; } }
+  /* weiche Wolkenschleier ziehen langsam (nur Transform, stromsparend) */
+  .hw { left: 0; border-radius: 50%; background: -webkit-radial-gradient(center, ellipse, rgba(185,195,210,.55), rgba(185,195,210,0) 70%); background: radial-gradient(ellipse, rgba(185,195,210,.55), rgba(185,195,210,0) 70%); will-change: transform; } /* Bewegung per ruhe.js (jede Sekunde, weicher Übergang), läuft so sicher auch auf iOS 15 */
+  .h-wolken-tag .hw, .h-wolken-nacht .hw, .h-regen-tag .hw, .h-regen-nacht .hw, .h-schnee-tag .hw, .h-schnee-nacht .hw, .h-gewitter-tag .hw, .h-gewitter-nacht .hw, .h-nebel-tag .hw, .h-nebel-nacht .hw, .h-teils .hw1, .h-teils .hw3 { display: block; }
+  .hw1 { top: -6%; width: 1100px; height: 380px; }
+  .hw2 { top: 14%; width: 900px; height: 300px; }
+  .hw3 { top: 30%; width: 1200px; height: 420px; }
+  .hw4 { top: 55%; width: 1000px; height: 360px; }
+  .hw5 { top: 72%; width: 1300px; height: 400px; }
+  /* Regen und Schnee: gekachelte Ebene, die nach unten wandert */
+  .hn { left: 0; right: 0; top: -240px; bottom: 0; -webkit-animation: hn-fall linear infinite; animation: hn-fall linear infinite; }
+  .h-regen-tag .hn, .h-regen-nacht .hn, .h-gewitter-tag .hn, .h-gewitter-nacht .hn { display: block; }
+  /* Schnee: einzelne Flocken auf einer Leinwand, per ruhe.js bewegt (verschiedene Größen, Tempo, Taumeln) */
+  #aod-schnee { display: none; left: 0; top: 0; width: 100%; height: 100%; }
+  .h-schnee-tag #aod-schnee, .h-schnee-nacht #aod-schnee { display: block; }
+  .h-regen-tag .hn, .h-regen-nacht .hn, .h-gewitter-tag .hn, .h-gewitter-nacht .hn { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cg stroke='%23b8c6d8' stroke-width='1.3' stroke-linecap='round'%3E%3Cpath d='M20 10l-4 22M90 60l-4 22M160 25l-4 22M215 110l-4 22M55 150l-4 22M130 185l-4 22M195 205l-4 22M10 205l-4 22'/%3E%3C/g%3E%3C/svg%3E"); }
+  .hn1 { -webkit-animation-duration: .9s; animation-duration: .9s; }
+  .hn2 { opacity: .55; background-position: 120px 90px; -webkit-animation-duration: 1.3s; animation-duration: 1.3s; }
+  .h-schnee-tag .hn, .h-schnee-nacht .hn { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='20' cy='20' r='2.4'/%3E%3Ccircle cx='110' cy='70' r='1.8'/%3E%3Ccircle cx='190' cy='30' r='2.8'/%3E%3Ccircle cx='60' cy='140' r='2'/%3E%3Ccircle cx='160' cy='170' r='2.5'/%3E%3Ccircle cx='220' cy='120' r='1.6'/%3E%3Ccircle cx='100' cy='215' r='2.2'/%3E%3C/g%3E%3C/svg%3E"); }
+  .h-schnee-tag .hn1, .h-schnee-nacht .hn1 { -webkit-animation-duration: 9s; animation-duration: 9s; }
+  .h-schnee-tag .hn2, .h-schnee-nacht .hn2 { -webkit-animation-duration: 14s; animation-duration: 14s; }
+  @-webkit-keyframes hn-fall { from { -webkit-transform: translate3d(0,0,0); } to { -webkit-transform: translate3d(0,240px,0); } }
+  @keyframes hn-fall { from { transform: translate3d(0,0,0); } to { transform: translate3d(0,240px,0); } }
+  /* Gewitter: seltenes Aufleuchten */
+  .h-gewitter-tag .hs-blitz, .h-gewitter-nacht .hs-blitz { display: block; left: 0; top: 0; right: 0; bottom: 0; background: #dfe6ff; opacity: 0; -webkit-animation: hs-blitz 11s infinite; animation: hs-blitz 11s infinite; }
+  @-webkit-keyframes hs-blitz { 0%, 90%, 92.5%, 100% { opacity: 0; } 91% { opacity: .35; } 92% { opacity: .1; } 93.5% { opacity: .25; } 95% { opacity: 0; } }
+  @keyframes hs-blitz { 0%, 90%, 92.5%, 100% { opacity: 0; } 91% { opacity: .35; } 92% { opacity: .1; } 93.5% { opacity: .25; } 95% { opacity: 0; } }
+  /* Text wie im Kopf einer Wetter-App, zentriert und gedimmt */
+  #aod { position: absolute; left: 0; right: 0; top: 7%; text-align: center; color: #fff; opacity: .5; /* gedimmt wie 0 % Helligkeit (Mina 24.11.) */ -webkit-transition: -webkit-transform 3s ease; transition: transform 3s ease; }
+  #aod-zeit { font-size: 46px; font-weight: 300; line-height: 1; letter-spacing: -.5px; font-variant-numeric: tabular-nums; -webkit-font-feature-settings: "tnum"; }
+  #aod-datum { font-size: 18px; font-weight: 500; margin-top: 6px; opacity: .8; }
+  #aod-ort { font-size: 48px; font-weight: 400; margin-top: 70px; letter-spacing: .2px; }
+  #aod-wtemp { font-size: 190px; font-weight: 100; line-height: 1; margin: 4px 0 6px; letter-spacing: -4px; }
+  .aod-zahl { position: relative; display: inline-block; } /* nur Minus und Ziffern zentriert, ° hängt rechts daran */
+  .aod-grad { position: absolute; left: 100%; top: 0; }
+  #aod-wtext { font-size: 30px; font-weight: 500; }
+  #aod-whl { font-size: 30px; font-weight: 500; margin-top: 4px; }
+  #aod-hinweise { margin-top: 22px; font-size: 24px; font-weight: 500; line-height: 1.5; } /* Niederschlag in x Min + DWD-Warnungen (wetter_hinweise.js) */
+  #aod-hinweise .aod-nieder { color: #9fd0ff; }
+  #aod-hinweise .aod-warn { display: inline-block; margin: 0 12px; white-space: nowrap; }
+  #aod-hinweise .aod-warn-zeit { font-weight: 400; opacity: .85; }
+  #aod-entfall { margin-top: 34px; font-size: 24px; font-weight: 500; line-height: 1.5; color: #ffb3ba; } /* nur Entfall, keine Vertretungen (Mina 25.11.) */
+  #aod-entfall b { font-weight: 700; }
+  /* Schalter für die Steckdose im Schlafzimmer: startet den Kurzbefehl „Schlafzimmer“ (Mina 25.11.) */
+  #aod-schalter { position: absolute; left: 50%; bottom: 5%; -webkit-transform: translateX(-50%); transform: translateX(-50%); padding: 16px 30px 16px 22px; border-radius: 40px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); color: #fff; opacity: .6; font-size: 24px; font-weight: 500; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
+  #aod-schalter.gedrueckt { background: rgba(255,255,255,.35); opacity: 1; }
+  .aod-power { display: inline-block; vertical-align: -5px; width: 22px; height: 22px; margin-right: 12px; border: 3px solid #fff; border-top-color: transparent; border-radius: 50%; position: relative; }
+  .aod-power:after { content: ""; position: absolute; left: 50%; top: -7px; width: 3px; height: 13px; margin-left: -1.5px; background: #fff; border-radius: 2px; }
+</style>
+<script>
+/* Uhr-Ansicht: nach RUHE_SEK Sekunden ohne Berührung gedimmte Ansicht wie der Kopf einer Wetter-App:
+   kleine Uhr mit Datum, Ort, große Temperatur, Wetterbeschreibung, Höchst-/Tiefstwert vor wetterabhängigem Himmel. Antippen zeigt wieder das Dashboard.
+   Gegen Einbrennen wandert der Block jede Minute ein wenig. Ecke oben links bleibt frei (Safaris X im Vollbild). ES5.
+   Testen: ?nacht=1 zeigt die Uhr-Ansicht sofort, ?ohneruhe=1 schaltet sie ganz ab. */
+(function () {
+  var RUHE_SEK = 300;
+  var WT = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  var MO = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+  var KURZ = ["Giesing", "Bahnhof", "Holzkirchen", "Mammendorf"];
+  var ruhe = document.getElementById("ruhe"), block = document.getElementById("aod");
+  var aus = /[?&]ohneruhe=1/.test(location.search);
+  var letzte = /[?&]nacht=1/.test(location.search) ? 0 : Date.now(), letzteMinute = -1;
+  function zwei(n) { return (n < 10 ? "0" : "") + n; }
+  function txt(el) { return el ? (el.textContent || "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "") : ""; }
+  function himmelArt(c) {
+    if (c <= 1) return "klar";
+    if (c <= 3) return "wolken";
+    if (c === 45 || c === 48) return "nebel";
+    if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "schnee";
+    if (c >= 95) return "gewitter";
+    return "regen";
+  }
+  var letzterHimmel = "";
+  function wetter() { // Himmel nur neu setzen, wenn sich das Wetter ändert (sonst starten die Animationen neu)
+    var wj = window.WetterJetzt;
+    if (!wj) return;
+    var cls = "h-" + himmelArt(wj.code) + "-" + (wj.tag ? "tag" : "nacht") + (wj.code === 1 ? " h-teils" : "");
+    if (cls !== letzterHimmel) { ruhe.className = cls; letzterHimmel = cls; }
+    document.getElementById("aod-wtemp").innerHTML = '<span class="aod-zahl">' + Math.round(wj.temp) + '<span class="aod-grad">°</span></span>';
+    document.getElementById("aod-wtext").innerHTML = wj.text || "";
+    document.getElementById("aod-whl").innerHTML = wj.hoch != null ? "H: " + Math.round(wj.hoch) + "° &nbsp;T: " + Math.round(wj.tief) + "°" : "";
+  }
+  function entfall() { // nur Entfall aus dem Vertretungsplan, je Kind eine Zeile, z. B. „Anna: Heute 3., 4. Std“
+    var kinder = document.querySelectorAll("#vertretung .vp-kind"), html = "";
+    for (var i = 0; i < kinder.length; i++) {
+      var kopf = kinder[i].querySelector(".vp-kopf"), name = "";
+      if (kopf) for (var c = kopf.firstChild; c; c = c.nextSibling) if (c.nodeType === 3) name += c.nodeValue;
+      name = name.replace(/^\s+|\s+$/g, "").split(" ")[0];
+      var tage = kinder[i].querySelectorAll(".vp-tag"), teile = [];
+      for (var j = 0; j < tage.length; j++) {
+        var std = tage[j].querySelectorAll(".vp-entfall .vp-std"), liste = [];
+        for (var n = 0; n < std.length; n++) liste.push(txt(std[n]));
+        if (!liste.length) continue;
+        var tn = txt(tage[j].querySelector(".vp-tagname")).split(" · ")[0].split(" ")[0];
+        teile.push(tn + " " + liste.join(", ") + " Std");
+      }
+      if (teile.length) html += "<div>Entfall " + name + ": <b>" + teile.join(" · ") + "</b></div>";
+    }
+    return html;
+  }
+  function abfahrten() {
+    var html = "";
+    for (var i = 0; i < 4; i++) {
+      var k = document.getElementById("karte" + i); if (!k) continue;
+      var z = k.querySelector(".zeile:not(.leer-zeile)"); if (!z) continue;
+      var lin = z.querySelector(".linie"), min = z.querySelector(".min");
+      if (!lin || !min || !txt(min)) continue;
+      html += '<span class="aod-abf"><span class="aod-lin' + (/sbahn/.test(lin.className) ? " s" : "") + '">' + txt(lin) + "</span>" +
+        '<span class="aod-ziel">' + KURZ[i] + '</span><span class="aod-min">' + txt(min) + "</span></span>";
+    }
+    return html;
+  }
+  function zeichnen(d) {
+    document.getElementById("aod-datum").innerHTML = WT[d.getDay()] + ", " + d.getDate() + ". " + MO[d.getMonth()];
+    document.getElementById("aod-zeit").innerHTML = d.getHours() + ":" + zwei(d.getMinutes());
+    wetter();
+    var ef = entfall(), efEl = document.getElementById("aod-entfall"); if (efEl.innerHTML !== ef) efEl.innerHTML = ef;
+    // Abfahrten in der Uhr-Ansicht auf Minas Wunsch weggelassen (abfahrten() bleibt für später)
+    if (d.getMinutes() !== letzteMinute) { // langsam wandern
+      letzteMinute = d.getMinutes();
+      var x = 0, y = Math.round(Math.cos(letzteMinute / 30 * 2 * Math.PI) * 12); // nur senkrecht, damit alles exakt mittig bleibt (Mina 24.11.)
+      block.style.webkitTransform = block.style.transform = "translate(" + x + "px," + y + "px)";
+    }
+  }
+  function pruefe() {
+    var d = new Date();
+    var soll = !aus && Date.now() - letzte >= RUHE_SEK * 1000;
+    var ist = ruhe.style.display === "block";
+    if (soll) zeichnen(d);
+    if (soll && !ist) {
+      if (window.Fokus && /fokus-/.test(document.body.className)) window.Fokus(null);
+      ruhe.style.display = "block"; window.scrollTo(0, 0);
+      wolkenLaufen(true); schneeLaufen(true);
+    } else if (!soll && ist) {
+      ruhe.style.display = "none"; wolkenLaufen(false); schneeLaufen(false);
+      if (window.Einpassen) window.Einpassen();
+    }
+  }
+  // Wolken: jede Sekunde ein Stück weiter, mit 1 s linearem Übergang (flüssig, wenig Strom, ohne Keyframes)
+  var WOLKEN = [[34, 300], [24, 1500], [29, 900], [20, 200], [38, 1900]], SPANNE = 2600, wolkenTimer = null, wolkenEls = null;
+  function wolkenSchritt(sofort) {
+    if (!wolkenEls) wolkenEls = ruhe.querySelectorAll(".hw");
+    var t = Date.now() / 1000;
+    for (var i = 0; i < wolkenEls.length && i < WOLKEN.length; i++) {
+      var x = (t * WOLKEN[i][0] + WOLKEN[i][1]) % SPANNE - 1350, el = wolkenEls[i];
+      var neu = sofort || el._x == null || x < el._x; // beim Neustart links ohne Übergang springen
+      el.style.webkitTransition = el.style.transition = neu ? "none" : "-webkit-transform 1s linear, transform 1s linear";
+      el.style.webkitTransform = el.style.transform = "translate3d(" + Math.round(x) + "px,0,0)";
+      el._x = x;
+    }
+  }
+  function wolkenLaufen(an) {
+    if (an && !wolkenTimer) { wolkenSchritt(true); wolkenTimer = setInterval(function () { wolkenSchritt(false); }, 1000); }
+    if (!an && wolkenTimer) { clearInterval(wolkenTimer); wolkenTimer = null; }
+  }
+  // Schnee: einzelne Flocken mit eigener Größe, Fallgeschwindigkeit und eigenem Taumeln, dazu leichte Böen.
+  // Nahe Flocken sind größer, heller und schneller als ferne. Läuft per setInterval (Keyframes standen auf Minas iPad still).
+  var schneeEl = document.getElementById("aod-schnee"), schneeCtx = null, flocken = [], schneeTimer = null, schneeB = 0, schneeH = 0, schneeT = 0;
+  function flocke(oben) {
+    var z = Math.pow(Math.random(), 1.6); // mehr ferne als nahe Flocken
+    return { x: Math.random() * schneeB, y: oben ? -10 - Math.random() * 80 : Math.random() * schneeH, z: z,
+      r: 0.8 + z * 3.4 + Math.random() * 0.6, vy: 14 + z * 52 + Math.random() * 14, amp: 4 + Math.random() * 20 + z * 10,
+      fr: 0.25 + Math.random() * 1.1, ph: Math.random() * 6.3, a: 0.3 + z * 0.6 + Math.random() * 0.1, dx: 0 };
+  }
+  function schneeSchritt() {
+    if (!schneeCtx || !/h-schnee/.test(ruhe.className)) return;
+    var b = schneeEl.offsetWidth, h = schneeEl.offsetHeight;
+    if (b !== schneeB || h !== schneeH) {
+      schneeEl.width = schneeB = b; schneeEl.height = schneeH = h; flocken = [];
+      var n = Math.round(b * h / 9000); for (var k = 0; k < n; k++) flocken.push(flocke(false));
+    }
+    var jetzt = Date.now() / 1000, dt = schneeT ? Math.min(0.2, jetzt - schneeT) : 0.04; schneeT = jetzt;
+    var wind = Math.sin(jetzt * 0.07) * 10 + Math.sin(jetzt * 0.29 + 1) * 5; // langsame Böen
+    schneeCtx.clearRect(0, 0, b, h);
+    schneeCtx.fillStyle = "#fff";
+    for (var i = 0; i < flocken.length; i++) {
+      var f = flocken[i];
+      f.y += f.vy * dt; f.dx += wind * (0.4 + f.z) * dt;
+      var x = f.x + f.dx + Math.sin(jetzt * f.fr + f.ph) * f.amp;
+      if (f.y > h + 8 || x < -40 || x > b + 40) { flocken[i] = flocke(true); continue; }
+      schneeCtx.globalAlpha = f.a;
+      schneeCtx.beginPath(); schneeCtx.arc(x, f.y, f.r, 0, 6.2832); schneeCtx.fill();
+    }
+    schneeCtx.globalAlpha = 1;
+  }
+  function schneeLaufen(an) {
+    if (!schneeEl || !schneeEl.getContext) return;
+    if (!schneeCtx) schneeCtx = schneeEl.getContext("2d");
+    if (an && !schneeTimer) { schneeT = 0; schneeSchritt(); schneeTimer = setInterval(schneeSchritt, 40); }
+    if (!an && schneeTimer) { clearInterval(schneeTimer); schneeTimer = null; }
+  }
+  // Aufwachen nur per Klick auf die Uhr-Ansicht selbst: Würde sie schon bei touchstart verschwinden,
+  // landete der folgende Klick auf der Kachel darunter und öffnete eine Detailansicht (Mina 25.11.).
+  var sperreBis = 0;
+  function sichtbar() { return ruhe.style.display === "block"; }
+  function beruehrt() { letzte = Date.now(); if (!sichtbar()) pruefe(); }
+  function aufwachen() {
+    letzte = Date.now(); pruefe();
+    if (window.Fokus && /fokus-/.test(document.body.className)) window.Fokus(null); // immer Übersicht
+    sperreBis = Date.now() + 800;
+  }
+  // Schalter Steckdose Schlafzimmer: startet den Kurzbefehl, der per Home-App umschaltet und das Dashboard
+  // mit ?nacht=1 wieder öffnet. Berührungen am Schalter wecken das Dashboard nicht auf.
+  var schalter = document.getElementById("aod-schalter");
+  if (schalter) {
+    var halt = function (e) { e.stopPropagation(); };
+    schalter.addEventListener("touchstart", halt, false);
+    schalter.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      schalter.className = "gedrueckt";
+      setTimeout(function () { schalter.className = ""; }, 1500);
+      location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent("Schlafzimmer");
+    }, false);
+  }
+  ruhe.addEventListener("click", function (e) { e.preventDefault(); aufwachen(); }, false); // läuft weiter zu vollbild.js
+  document.addEventListener("touchstart", beruehrt, false);
+  document.addEventListener("click", function (e) {
+    if (Date.now() < sperreBis && !ruhe.contains(e.target)) { e.preventDefault(); e.stopPropagation(); return; } // Nachzügler-Klicks schlucken
+    if (!sichtbar()) beruehrt();
+  }, true);
+  ruhe.style.display = "none";
+  pruefe(); setInterval(pruefe, 5000);
+})();
+
+</script>
+<script>
+/* Uhr-Ansicht: „Schnee/Regen in x Min“ aus dem DWD-Regenradar (Vorhersage bis ca. 2 Std, 5-Minuten-Schritte)
+   und amtliche DWD-Warnungen für Unterhaching. Beides über Bright Sky (kostenlos, ohne Schlüssel). ES5.
+   Testen: ?hinweistest=1 zeigt Beispielhinweise. */
+(function () {
+  var URL_RADAR = "https://api.brightsky.dev/radar?lat=48.066&lon=11.616&distance=1000&format=plain";
+  var URL_WARN = "https://api.brightsky.dev/alerts?lat=48.066&lon=11.616";
+  var SCHWELLE = 2; // precipitation_5 in 0,01 mm je 5 Min; 2 ≈ 0,24 mm/h, darunter nur Radar-Rauschen
+  var radar = null, warnungen = [];
+  var FARBE = { minor: "#ffd84d", moderate: "#ffa53a", severe: "#ff5b4a", extreme: "#d070ff" };
+  function holen(url, fertig) {
+    var x = new XMLHttpRequest();
+    x.open("GET", url, true);
+    x.onreadystatechange = function () {
+      if (x.readyState === 4 && x.status === 200) { try { fertig(JSON.parse(x.responseText)); } catch (e) {} }
+    };
+    x.send();
+  }
+  function zwei(n) { return (n < 10 ? "0" : "") + n; }
+  function uhr(d) { return d.getHours() + ":" + zwei(d.getMinutes()); }
+  function wort(s) { return s.toLowerCase().replace(/(^|[\s\-\/])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); }); }
+  function art() {
+    var t = window.WetterJetzt ? window.WetterJetzt.temp : 5;
+    return t <= 0.5 ? "Schnee" : (t <= 2 ? "Schneeregen" : "Regen");
+  }
+  function niederschlag() {
+    if (!radar || !radar.length) return "";
+    var jetzt = Date.now(), reihe = [];
+    for (var i = 0; i < radar.length; i++) {
+      var t = Date.parse(radar[i].timestamp);
+      if (t < jetzt - 5 * 60000) continue;
+      var g = radar[i].precipitation_5, m = 0;
+      for (var a = 0; a < g.length; a++) for (var b = 0; b < g[a].length; b++) m = Math.max(m, g[a][b]); // 3×3 Kacheln um Unterhaching
+      reihe.push({ t: t, nass: m >= SCHWELLE });
+    }
+    if (reihe.length < 2) return "";
+    var was = art(), ende = reihe[reihe.length - 1].t;
+    function min(t) { return Math.max(5, Math.round((t - jetzt) / 300000) * 5); }
+    if (reihe[0].nass) {
+      for (var j = 1; j < reihe.length - 1; j++) if (!reihe[j].nass && !reihe[j + 1].nass) return was + " hört in ca. " + min(reihe[j].t) + " Min auf";
+      return was + " noch mindestens bis " + uhr(new Date(ende));
+    }
+    for (var k = 1; k < reihe.length; k++) if (reihe[k].nass) return was + " in ca. " + min(reihe[k].t) + " Min";
+    return "";
+  }
+  function warnTexte() {
+    var jetzt = Date.now(), html = "", schon = {};
+    for (var i = 0; i < warnungen.length; i++) {
+      var w = warnungen[i], von = Date.parse(w.onset), bis = Date.parse(w.expires);
+      if (bis && bis < jetzt) continue;
+      if (von && von > jetzt + 24 * 3600000) continue;
+      var name = wort(w.event_de || ""); if (!name || schon[name]) continue; schon[name] = 1;
+      var heute = new Date().toDateString(), zeit;
+      if (von && von > jetzt) zeit = "ab " + (new Date(von).toDateString() === heute ? "" : "morgen ") + uhr(new Date(von)) + " Uhr";
+      else if (bis) zeit = "bis " + (new Date(bis).toDateString() === heute ? "" : "morgen ") + uhr(new Date(bis)) + " Uhr";
+      else zeit = "";
+      html += '<span class="aod-warn" style="color:' + (FARBE[w.severity] || FARBE.minor) + '"><span class="aod-warn-zeichen">&#9888;&#xFE0E;</span> ' + name + (zeit ? ' <span class="aod-warn-zeit">' + zeit + "</span>" : "") + "</span>";
+    }
+    return html;
+  }
+  function zeigen() {
+    var el = document.getElementById("aod-hinweise"); if (!el) return;
+    var n = niederschlag(), html = (n ? '<div class="aod-nieder">' + n + "</div>" : "");
+    var w = warnTexte(); if (w) html += '<div class="aod-warnungen">' + w + "</div>";
+    if (el.innerHTML !== html) el.innerHTML = html;
+  }
+  function laden() {
+    holen(URL_RADAR, function (d) { if (d && d.radar) { radar = d.radar; zeigen(); } });
+    holen(URL_WARN, function (d) { if (d && d.alerts) { warnungen = d.alerts; zeigen(); } });
+  }
+  if (/[?&]hinweistest=1/.test(location.search)) {
+    var t0 = Date.now(), r = [];
+    for (var i = 0; i < 24; i++) r.push({ timestamp: new Date(t0 + i * 300000).toISOString(), precipitation_5: [[0, 0, 0], [0, i >= 5 ? 6 : 0, 0], [0, 0, 0]] });
+    radar = r;
+    warnungen = [{ event_de: "FROST", severity: "minor", onset: new Date(t0 - 3600000).toISOString(), expires: new Date(t0 + 4 * 3600000).toISOString() },
+      { event_de: "GLÄTTE", severity: "moderate", onset: new Date(t0 + 2 * 3600000).toISOString(), expires: new Date(t0 + 9 * 3600000).toISOString() }];
+    setTimeout(zeigen, 2500); setInterval(zeigen, 30000);
+    return;
+  }
+  laden();
+  setInterval(laden, 5 * 60 * 1000);
+  setInterval(zeigen, 60 * 1000); // Minuten weiterzählen
 })();
 
 </script>
@@ -948,7 +1411,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
  * öffnet das Dashboard mit den Daten im Link-Hash:
  *     https://<dashboard>/#vp=<Base64>
  * Base64-Inhalt (UTF-8): pro Kind  "Name\n<HTML der Vertretungsplan-Seite>",
- * Kinder getrennt durch "@@KIND@@".
+ * Kinder getrennt durch "@@KIND@@". Optional pro Kind hinter "@@SA@@" die
+ * Tabellenzeilen der Seite /service/termine/liste/schulaufgaben.
  * Der Hash wird nie an einen Server geschickt. Die Seite merkt sich die
  * Daten im localStorage des iPads und entfernt sie danach aus der Adresse.
  *
@@ -959,7 +1423,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 (function () {
   var SPEICHER = "vertretungsplan_v1";
   var TAGE_ANZEIGEN = 2;
-  var ZEILEN = 6; // feste Zeilenzahl pro Kind, damit sich das Layout nicht verschiebt
+  var ZEILEN = 6;
+  var SA_ANZAHL = 3; // so viele kommende Schulaufgaben pro Kind // feste Zeilenzahl pro Kind, damit sich das Layout nicht verschiebt
   var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
   function iso(d) {
@@ -984,6 +1449,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 
   /* Zerlegt die Seite /service/vertretungsplan (gleiche Logik wie das Python-Skript) */
   function parsen(html) {
+    html = String(html).split("@@SA@@")[0];
     var doc = new DOMParser().parseFromString(html, "text/html");
     var inhalt = doc.getElementById("asam_content") || doc.body;
     var h2 = inhalt.querySelector("h2");
@@ -1034,6 +1500,33 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     return plan;
   }
 
+  /* Schulaufgaben: Zeilen der Seite /service/termine/liste/schulaufgaben
+     (Spalte 1 Datum, Spalte 3 Titel). Liefert [{datum, titel}], nach Datum sortiert. */
+  function saParsen(html) {
+    var doc = new DOMParser().parseFromString("<table>" + html + "</table>", "text/html");
+    var zeilen = doc.querySelectorAll("tr"), liste = [], gesehen = {};
+    for (var z = 0; z < zeilen.length; z++) {
+      var c = zeilen[z].querySelectorAll("td, th");
+      if (c.length < 2) continue;
+      var d = null, dz = -1;
+      for (var a = 0; a < c.length && !d; a++) { d = txt(c[a]).match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/); dz = a; }
+      if (!d) continue;
+      var titel = c.length > 2 && dz !== 2 ? txt(c[2]) : "";
+      if (!titel) {
+        var teile = [];
+        for (var b = 0; b < c.length; b++) if (b !== dz && txt(c[b])) teile.push(txt(c[b]));
+        titel = teile.join(" · ");
+      }
+      if (!titel) continue;
+      var datum = d[3] + "-" + (d[2].length < 2 ? "0" : "") + d[2] + "-" + (d[1].length < 2 ? "0" : "") + d[1];
+      if (gesehen[datum + titel]) continue;
+      gesehen[datum + titel] = 1;
+      liste.push({ datum: datum, titel: titel });
+    }
+    liste.sort(function (x, y) { return x.datum < y.datum ? -1 : x.datum > y.datum ? 1 : 0; });
+    return liste;
+  }
+
   function ausHash() {
     var m = location.hash.match(/[#&]vp=([^&]+)/);
     if (!m) return null;
@@ -1045,7 +1538,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       if (!b) continue;
       var nl = b.indexOf("\n");
       var name = (nl > 0 ? b.slice(0, nl) : "Kind " + (i + 1)).split("(")[0].replace(/^\s+|\s+$/g, "");
-      var plan = parsen(nl > 0 ? b.slice(nl + 1) : b);
+      var rest = nl > 0 ? b.slice(nl + 1) : b, sa = rest.indexOf("@@SA@@");
+      var plan = parsen(rest);
+      if (sa >= 0) plan.schulaufgaben = saParsen(rest.slice(sa + 6));
       plan.name = name;
       kinder.push(plan);
     }
@@ -1073,12 +1568,31 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     return '<div class="vp-zeile vp-' + esc(e.art) + '"><div class="vp-std">' + esc(e.stunde) + '.</div><div class="vp-was">' +
       titel + (e.info ? '<span class="vp-info">' + esc(e.info) + "</span>" : "") + "</div></div>";
   }
+  function saBlock(k, heute) {
+    if (!k.schulaufgaben) return { html: "", zeilen: 0 };
+    var h = new Date(), html = "", n = 0;
+    var heute0 = new Date(h.getFullYear(), h.getMonth(), h.getDate()).getTime();
+    for (var i = 0; i < k.schulaufgaben.length && n < SA_ANZAHL; i++) {
+      var s = k.schulaufgaben[i];
+      if (s.datum < heute) continue;
+      var p = s.datum.split("-"), tag = new Date(+p[0], +p[1] - 1, +p[2]);
+      var diff = Math.round((tag.getTime() - heute0) / 86400000);
+      var wann = diff === 0 ? "heute" : diff === 1 ? "morgen" : "in " + diff + " Tagen";
+      html += '<div class="vp-sa' + (diff <= 2 ? " vp-sa-bald" : "") + '"><span class="vp-sa-dat">' + WT[tag.getDay()] + " " + p[2] + "." + p[1] + '.</span><span class="vp-sa-titel">' +
+        esc(s.titel) + '</span><span class="vp-sa-wann">' + wann + "</span></div>";
+      n++;
+    }
+    if (!n) { html = '<div class="vp-sa vp-sa-keine">Keine angekündigt</div>'; n = 1; }
+    return { html: '<div class="vp-sa-block"><div class="vp-tagname">Schulaufgaben</div>' + html + "</div>", zeilen: n };
+  }
   function zeichnen(ziel, d) {
     if (!d || !d.kinder) {
       ziel.innerHTML = '<div class="vp-leer">Noch keine Daten. Bitte den Kurzbefehl „Vertretungsplan“ einmal starten.</div>';
       return;
     }
     var heute = iso(new Date()), html = "";
+    var mitSA = false;
+    for (var q = 0; q < d.kinder.length; q++) if (d.kinder[q].schulaufgaben) mitSA = true;
     for (var i = 0; i < d.kinder.length; i++) {
       var k = d.kinder[i], gezeigt = 0, zeilen = 0;
       html += '<div class="vp-kind"><div class="vp-kopf"><span class="vp-avatar vp-avatar' + (i % 2) + '">' + esc(k.name.charAt(0)) + "</span>" + esc(k.name) + (k.klasse ? "<small>Klasse " + esc(k.klasse) + "</small>" : "") + "</div>";
@@ -1093,6 +1607,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
         html += "</div>";
       }
       if (!gezeigt) { html += '<div class="vp-ok">Noch kein Plan für die nächsten Tage</div>'; zeilen++; }
+      var sab = saBlock(k, heute);
+      html += sab.html; zeilen += sab.zeilen;
       for (; zeilen < ZEILEN; zeilen++) html += '<div class="vp-zeile vp-leer-zeile"><div class="vp-std">&nbsp;</div><div class="vp-was">&nbsp;</div></div>';
       html += "</div>";
     }
@@ -1101,7 +1617,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var hhmm = (zeit.getHours() < 10 ? "0" : "") + zeit.getHours() + ":" + (zeit.getMinutes() < 10 ? "0" : "") + zeit.getMinutes();
     html += '<div class="vp-fuss' + (alter > 6 * 60 ? " vp-alt" : "") + '">Abgerufen ' +
       (iso(zeit) === heute ? "heute " : WT[zeit.getDay()] + " ") + hhmm +
-      (fehler ? " · Fehler: " + esc(fehler) : "") + "</div>";
+      (fehler ? " · Fehler: " + esc(fehler) : "") + (mitSA ? "" : " · ohne Schulaufgaben") + "</div>";
     ziel.innerHTML = html;
   }
 
@@ -1116,6 +1632,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     ".vp-raum,.vp-sonstiges{background:#1f3346;border-left:6px solid #5aa9ff}" +
     ".vp-ok{font-size:18px;color:#7ddc8a;padding:4px 0}.vp-hinweis{font-size:16px;color:#c9d1db;padding:4px 0}" +
     ".vp-leer-zeile{background:transparent}" +
+    ".vp-sa-block{margin-top:24px}.vp-sa{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:baseline;align-items:baseline;font-size:17px;padding:2px 0;color:#dfe5ec}" +
+    ".vp-sa-dat{width:86px;-webkit-flex-shrink:0;flex-shrink:0;color:#9aa6b5;font-size:15px}.vp-sa-titel{-webkit-flex:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+    ".vp-sa-wann{-webkit-flex-shrink:0;flex-shrink:0;margin-left:8px;font-size:14px;color:#9aa6b5}.vp-sa-bald .vp-sa-wann{color:#ffc53d;font-weight:700}.vp-sa-keine{color:#9aa6b5;font-size:15px}" +
     ".vp-leer{font-size:18px;color:#9aa6b5;padding:12px 0}.vp-fuss{font-size:13px;color:#6d7887;margin-top:4px}.vp-fuss.vp-alt{color:#ff8f99}";
 
   var fehler = "";

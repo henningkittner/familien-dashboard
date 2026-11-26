@@ -1,0 +1,98 @@
+<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muster für den Kurzbefehl</title>
+<style>
+body{font-family:-apple-system,Helvetica,sans-serif;background:#10151c;color:#f2f4f7;margin:0;padding:20px;font-size:18px}
+h1{font-size:26px;margin:0 0 6px} p{color:#a9b2bd;margin:0 0 18px}
+.k{background:#1b2330;border-radius:14px;padding:14px 16px;margin-bottom:14px}
+.kopf{color:#a9b2bd;font-size:16px;margin-bottom:8px}
+.nr{display:inline-block;background:#0a84ff;color:#fff;font-weight:700;border-radius:8px;padding:2px 9px;margin-right:10px}
+.t{font-family:Menlo,Courier,monospace;font-size:17px;word-break:break-all;background:#0c1016;border-radius:8px;padding:10px;margin-bottom:10px;-webkit-user-select:text;user-select:text}
+.sp{color:#5f6b7a}
+button{font-size:20px;font-weight:600;padding:14px 26px;border:0;border-radius:12px;background:#0a84ff;color:#fff;-webkit-appearance:none}
+button.ok{background:#30a14e}
+</style></head><body>
+<h1>Muster für Teil 4 (Nachricht an die Kinder)</h1>
+<p>Knopf antippen, dann im Kurzbefehl ins Feld tippen und „Einsetzen“ wählen. ␣ steht für ein Leerzeichen, es wird mitkopiert.</p>
+<div class="k"><div class="kopf"><span class="nr">1</span>Text abgleichen – Muster</div>
+<div class="t">[A-Z][a-z]\.,\s*\d{2}\.\d{2}\.\d{4}|&lt;tr[^&gt;]*&gt;\s*&lt;td[^&gt;]*&gt;\s*\d+\.?\s*&lt;/td&gt;[\s\S]*?&lt;/tr&gt;</div>
+<button onclick="kopiere(0,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">3</span>Text ersetzen – Suchen (Durch: leer lassen)</div>
+<div class="t">&lt;span[^&gt;]*line-through[^&gt;]*&gt;[^&lt;]*&lt;/span&gt;</div>
+<button onclick="kopiere(1,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">4a</span>Text ersetzen – Suchen</div>
+<div class="t">&lt;/td&gt;\s*&lt;td[^&gt;]*&gt;</div>
+<button onclick="kopiere(2,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">4b</span>Text ersetzen – Durch (Leerzeichen · Leerzeichen)</div>
+<div class="t"><span class=sp>␣</span>·<span class=sp>␣</span></div>
+<button onclick="kopiere(3,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">5</span>Text ersetzen – Suchen (Durch: leer lassen)</div>
+<div class="t">&lt;[^&gt;]+&gt;</div>
+<button onclick="kopiere(4,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">6a</span>Text ersetzen – Suchen</div>
+<div class="t">( *· *)+</div>
+<button onclick="kopiere(5,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">6b</span>Text ersetzen – Durch (Leerzeichen · Leerzeichen)</div>
+<div class="t"><span class=sp>␣</span>·<span class=sp>␣</span></div>
+<button onclick="kopiere(6,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">6c</span>Neues „Text ersetzen“ direkt unter 6 – Suchen (Regulärer Ausdruck an, Durch: leer lassen)</div>
+<div class="t">\s*·?\s*&amp;nbsp;</div>
+<button onclick="kopiere(11,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">6d</span>Neues „Text ersetzen“ direkt unter 6c – Suchen (Regulärer Ausdruck an)</div>
+<div class="t">(\d{2}\.\d{2}\.\d{4})(?=\n[A-Z][a-z]\.,|\s*$)</div>
+<button onclick="kopiere(12,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">6e</span>dasselbe „Text ersetzen“ – Durch (zwei Zeilen)</div>
+<div class="t">$1<span class=sp>↵</span><br>keine<span class=sp>␣</span>Änderungen</div>
+<p style="margin:0 0 10px">Der Zeilenumbruch wird mitkopiert. Steht nach dem Einsetzen alles in einer Zeile, tippe hinter <b>$1</b> und drücke Return.</p>
+<button onclick="kopiere(13,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">8a</span>Text – vor der Blase KindID</div>
+<div class="t">vp_</div>
+<button onclick="kopiere(7,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">8b</span>Text – hinter der Blase KindID</div>
+<div class="t">.txt</div>
+<button onclick="kopiere(8,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">10</span>Text abgleichen – Muster</div>
+<div class="t">(?m)^\d{1,2}\. ·</div>
+<button onclick="kopiere(9,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">11.1.1</span>Text – vor der Blase KindName (mit Leerzeichen am Ende)</div>
+<div class="t">Vertretungsplan<span class=sp>␣</span>für<span class=sp>␣</span></div>
+<button onclick="kopiere(10,this)">Kopieren</button></div>
+
+<h1 style="margin-top:28px">Muster für Teil 8 (Schulaufgaben)</h1>
+<div class="k"><div class="kopf"><span class="nr">S1</span>URL – Seite mit den Schulaufgaben</div>
+<div class="t">https://wkrstauf.eltern-portal.org/service/termine/liste/schulaufgaben</div>
+<button onclick="kopiere(14,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">S2</span>Name konfigurieren – Name</div>
+<div class="t">sa.txt</div>
+<button onclick="kopiere(15,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">S3</span>Text abgleichen – Muster</div>
+<div class="t">&lt;tr[\s\S]*?&lt;/tr&gt;</div>
+<button onclick="kopiere(16,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">S4</span>Trenner im Text (eigene Zeile)</div>
+<div class="t">@@SA@@</div>
+<button onclick="kopiere(17,this)">Kopieren</button></div>
+
+<textarea id="puffer" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px" readonly></textarea>
+<script>
+var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "vp_", ".txt", "(?m)^\\d{1,2}\\. ·", "Vertretungsplan für ", "\\s*·?\\s*&nbsp;", "(\\d{2}\\.\\d{2}\\.\\d{4})(?=\\n[A-Z][a-z]\\.,|\\s*$)", "$1\nkeine Änderungen", "https://wkrstauf.eltern-portal.org/service/termine/liste/schulaufgaben", "sa.txt", "<tr[\\s\\S]*?</tr>", "@@SA@@"];
+function fertig(knopf, ok) {
+  knopf.innerHTML = ok ? "Kopiert ✓" : "Bitte Text lange drücken";
+  knopf.className = ok ? "ok" : "";
+  setTimeout(function () { knopf.innerHTML = "Kopieren"; knopf.className = ""; }, 2500);
+}
+function altKopieren(t) {
+  var p = document.getElementById("puffer");
+  p.value = t; p.readOnly = false; p.contentEditable = true;
+  var r = document.createRange(); r.selectNodeContents(p);
+  var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  p.setSelectionRange(0, t.length);
+  var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+  p.readOnly = true; p.blur();
+  return ok;
+}
+function kopiere(i, knopf) {
+  var t = TEXTE[i];
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(function () { fertig(knopf, true); }, function () { fertig(knopf, altKopieren(t)); });
+  } else fertig(knopf, altKopieren(t));
+}
+</script></body></html>

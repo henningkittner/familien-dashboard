@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vollbild-Test</title>
+<style>
+ body{font-family:-apple-system,Helvetica,sans-serif;background:#111;color:#fff;padding:24px;font-size:20px}
+ button{display:block;width:100%;max-width:500px;margin:14px 0;padding:18px;font-size:22px;border-radius:12px;border:0;background:#0a84ff;color:#fff}
+ #box{background:#333;padding:16px;border-radius:12px}
+ #log{white-space:pre-wrap;font-family:Menlo,monospace;font-size:16px;margin-top:20px;color:#9f9}
+</style></head><body>
+<h2>Vollbild-Test</h2>
+<p>Bitte nacheinander die drei Knöpfe antippen und dann ein Bildschirmfoto von dieser Seite schicken.</p>
+<div id="box">
+<button onclick="teste(document.documentElement,'1 Ganze Seite')">1 · Ganze Seite</button>
+<button onclick="teste(document.body,'2 Body')">2 · Body</button>
+<button onclick="teste(document.getElementById('box'),'3 Kasten')">3 · Nur dieser Kasten</button>
+</div>
+<div id="log"></div>
+<script>
+var log = document.getElementById("log");
+function schreib(t){ log.innerHTML += t + "\n"; }
+schreib("Gerät: " + navigator.userAgent);
+schreib("fullscreenEnabled: " + document.fullscreenEnabled + " / webkitFullscreenEnabled: " + document.webkitFullscreenEnabled);
+var e = document.documentElement;
+schreib("requestFullscreen: " + typeof e.requestFullscreen + " / webkitRequestFullscreen: " + typeof e.webkitRequestFullscreen + " / webkitEnterFullscreen (Video): " + typeof document.createElement("video").webkitEnterFullscreen);
+function teste(el, name){
+  var f = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen;
+  if (!f) { schreib(name + ": Funktion fehlt"); return; }
+  try {
+    var p = f.call(el);
+    if (p && p.then) p.then(function(){ schreib(name + ": OK"); }, function(x){ schreib(name + ": abgelehnt (" + x + ")"); });
+    else setTimeout(function(){ schreib(name + ": " + (document.webkitFullscreenElement || document.fullscreenElement ? "OK" : "nichts passiert")); }, 800);
+  } catch (x) { schreib(name + ": Fehler " + x); }
+}
+document.addEventListener("webkitfullscreenerror", function(){ schreib("webkitfullscreenerror"); });
+document.addEventListener("fullscreenerror", function(){ schreib("fullscreenerror"); });
+</script></body></html>
