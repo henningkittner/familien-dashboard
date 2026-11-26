@@ -1532,7 +1532,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     html += "</tr>";
     for (var s = 0; s < sp.stunden.length; s++) {
       var st = sp.stunden[s];
-      html += '<tr><td class="vp-sp-nr">' + esc(st.nr) + (st.zeit ? "<small>" + esc(spZeit(st.zeit)) + "</small>" : "") + "</td>";
+      html += '<tr><td class="vp-sp-nr">' + esc(st.nr) + (st.zeit ? "<small>" + esc(spZeit(st.zeit)).replace("–", "<br>") + "</small>" : "") + "</td>";
       for (var t = 0; t < sp.tage.length; t++) {
         var z = st.zellen[t] || [];
         html += "<td" + (sp.tage[t] === heuteWt ? ' class="vp-sp-heute"' : "") + ">" + (z.length ? "<b>" + esc(z[0]) + "</b>" : "") + "</td>";
@@ -1617,7 +1617,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     for (var q = 0; q < d.kinder.length; q++) if (d.kinder[q].schulaufgaben) mitSA = true;
     for (var i = 0; i < d.kinder.length; i++) {
       var k = d.kinder[i], gezeigt = 0, zeilen = 0;
-      html += '<div class="vp-kind"><div class="vp-kopf"><span class="vp-avatar vp-avatar' + (i % 2) + '">' + esc(k.name.charAt(0)) + "</span>" + esc(k.name) + (k.klasse ? "<small>Klasse " + esc(k.klasse) + "</small>" : "") + "</div>";
+      html += '<div class="vp-kind"><div class="vp-kopf"><span class="vp-avatar vp-avatar' + (i % 2) + '">' + esc(k.name.charAt(0)) + "</span>" + esc(k.name.split(" ")[0]) + (k.klasse ? "<small>Klasse " + esc(k.klasse) + "</small>" : "") + "</div>";
       for (var j = 0; j < k.tage.length && gezeigt < TAGE_ANZEIGEN; j++) {
         var t = k.tage[j];
         if (t.datum < heute) continue;
@@ -1660,9 +1660,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     ".vp-sa-wann{-webkit-flex-shrink:0;flex-shrink:0;margin-left:8px;font-size:14px;color:#9aa6b5}.vp-sa-bald .vp-sa-wann{color:#ffc53d;font-weight:700}.vp-sa-keine{color:#9aa6b5;font-size:15px}" +
     ".vp-sp{display:none;margin-top:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px 8px}body.fokus-vp .vp-sp{display:block}body.fokus-vp .vp-leer-zeile{display:none}" +
     ".vp-sp table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}.vp-sp th{font-size:13px;color:#9aa6b5;font-weight:600;padding:2px 3px 4px;text-align:left}" +
-    ".vp-sp td{padding:5px 3px;border-top:1px solid rgba(255,255,255,.07);vertical-align:top;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}" +
+    ".vp-sp td{padding:5px 3px;border-top:1px solid rgba(255,255,255,.07);vertical-align:middle;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}" +
     ".vp-sp td b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis}.vp-sp td small{display:block;font-size:11px;color:#9aa6b5;overflow:hidden;text-overflow:ellipsis}" +
-    ".vp-sp th:first-child,.vp-sp .vp-sp-nr{width:96px}.vp-sp .vp-sp-nr small{display:inline;font-size:12px;margin-left:6px;font-weight:400}.vp-sp .vp-sp-nr{font-weight:700;color:#c3bad0}" +
+    ".vp-sp th:first-child,.vp-sp .vp-sp-nr{width:70px}.vp-sp td,.vp-sp th{text-align:center}.vp-sp th:first-child,.vp-sp .vp-sp-nr{text-align:left}.vp-sp .vp-sp-nr small{display:inline-block;vertical-align:middle;font-size:12px;line-height:1.25;margin-left:8px;font-weight:400}.vp-sp .vp-sp-nr{font-weight:700;color:#c3bad0}" +
     ".vp-sp .vp-sp-heute{background:rgba(196,139,255,.14)}.vp-sp th.vp-sp-heute{color:#e6d4ff;border-radius:6px 6px 0 0}" +
     ".vp-leer{font-size:18px;color:#9aa6b5;padding:12px 0}.vp-fuss{font-size:13px;color:#6d7887;margin-top:4px}.vp-fuss.vp-alt{color:#ff8f99}";
 
