@@ -524,8 +524,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   #wd-radar .wd-radar-kachel { -webkit-filter: invert(1) hue-rotate(180deg) brightness(.75) contrast(.9) saturate(.4); filter: invert(1) hue-rotate(180deg) brightness(.75) contrast(.9) saturate(.4); } /* helle OSM-Karte dunkel einfärben */
   #wd-radar .wd-radar-bild { position: absolute; left: 0; top: 0; }
   #wd-radar .wd-radar-haus { position: absolute; width: 8px; height: 8px; border: 2px solid #fff; border-radius: 50%; background: #ff5b4a; box-shadow: 0 0 0 2px rgba(0,0,0,.4); }
-  #wd-radar .wd-radar-zeit { position: absolute; left: 8px; top: 6px; font-size: 15px; font-weight: 600; color: #fff; text-shadow: 0 1px 3px #000; }
-  #wd-radar .wd-radar-zeit span { font-size: 11px; font-weight: 600; color: #ffd84d; margin-left: 4px; text-transform: uppercase; letter-spacing: .4px; }
+  #wd-radar .wd-radar-zeit { position: absolute; left: 8px; top: 8px; font-size: 14px; font-weight: 600; color: #fff; background: rgba(27,36,51,.88); border-radius: 8px; padding: 3px 9px; font-variant-numeric: tabular-nums; }
+  #wd-radar .wd-radar-zeit span { font-size: 12px; font-weight: 500; color: #8f9bb0; margin-left: 3px; }
   #wd-radar .wd-radar-hinweis { position: absolute; right: 6px; bottom: 4px; font-size: 9px; color: rgba(255,255,255,.45); }
   #wd-radar .wd-radar-status { position: absolute; left: 10px; right: 10px; bottom: 22px; text-align: center; font-size: 13px; font-weight: 500; color: #dfe6f0; background: rgba(14,19,27,.75); border-radius: 8px; padding: 5px 8px; }
   #wd-radar .wd-radar-fehler { padding: 30px 10px; text-align: center; color: #8f9bb0; font-size: 14px; }
@@ -705,7 +705,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     c.setTransform(1, 0, 0, 1, 0, 0);
     var d = new Date(Date.parse(r.timestamp)), zukunft = d.getTime() > Date.now() + 60000;
     var z = el.querySelector(".wd-radar-zeit");
-    if (z) z.innerHTML = d.getHours() + ":" + zwei(d.getMinutes()) + (zukunft ? ' <span>Vorhersage</span>' : "");
+    if (z) z.innerHTML = d.getHours() + ":" + zwei(d.getMinutes()) + (zukunft ? ' <span>Vorhersage</span>' : ' <span>gemessen</span>');
   }
   function status(t) {
     statusText = t;
@@ -740,12 +740,12 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (!daten) return;
     if (pause > 0) { pause--; return; }
     bild = (bild + 1) % daten.radar.length;
-    if (bild === daten.radar.length - 1) pause = 4; // am Ende kurz stehen bleiben
+    if (bild === daten.radar.length - 1) pause = 3; // am Ende kurz stehen bleiben
     zeichnen();
   }
   window.RadarStart = function (behaelter) {
     el = behaelter; bild = 0;
-    if (!timer) timer = setInterval(schritt, 500);
+    if (!timer) timer = setInterval(schritt, 1100); // ruhig: gut 1 Sekunde je Bild (Mina 26.11.)
   };
 })();
 
