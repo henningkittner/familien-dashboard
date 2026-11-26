@@ -569,6 +569,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var t = e.target;
     if (drin(t, function (el) { return el.id === "ruhe"; })) return;
     if (aktuell()) { setze(null); return; }
+    if (drin(t, function (el) { return el.id === "solar"; })) { setze("solar"); if (window.SolarGeoeffnet) window.SolarGeoeffnet(); return; }
     if (drin(t, function (el) { return el.id === "wetter"; })) { setze("wetter"); return; }
     if (drin(t, function (el) { return el.id === "raster" || /\babf-titel\b/.test(el.className || ""); })) setze("abf");
     else if (drin(t, function (el) { return /\bvp-bereich\b/.test(el.className || ""); })) setze("vp");
@@ -1081,41 +1082,84 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 
 </script>
 <script>
-/* Balkonkraftwerk (Anker Solarbank 3 + Smart Meter): der Kurzbefehl hängt die Antwort von
-   get_scen_info als &pv=<base64> an den Link. Wir zeigen eine kleine Kachel links neben dem Wetter.
-   Letzter Stand bleibt im iPad gespeichert. ES5, iOS 15. */
+/* Balkonkraftwerk (Anker Solarbank 3 + Smart Meter): der Kurzbefehl „Solar“ hängt die Antwort von
+   get_scen_info als #pv=<base64> an den Link. Kleine Kachel links neben dem Wetter, Antippen öffnet
+   die Detailansicht (Energiefluss, Akku, Solar-Eingänge, Netz, Verlauf, Bilanz). Safari darf Anker nicht
+   direkt fragen (CORS): „Aktualisieren“ bzw. Öffnen mit Werten älter als 5 Min startet den Kurzbefehl,
+   der das Dashboard mit frischen Werten wieder öffnet; die Detailansicht geht dann von selbst wieder auf.
+   Letzter Stand und Verlauf (48 Std.) bleiben im iPad gespeichert. ES5, iOS 15: Animation nur per JS. */
 (function () {
-  var SPEICHER = "solar_v1", ALT_MIN = 90;
+  var SPEICHER = "solar_v1", VERLAUF = "solar_verlauf_v1", WIEDER_AUF = "solar_auf_v1", ALT_MIN = 90, FRISCH_MIN = 5;
+  var AKKU_KWH = 2.688; // Solarbank 3 E2700 Pro, je Erweiterungsakku noch einmal 2,688 kWh
   function zahl(x) { var n = parseFloat(x); return isNaN(n) ? null : n; }
   function zwei(n) { return (n < 10 ? "0" : "") + n; }
-  function watt(n) { if (n == null) return "–"; n = Math.round(n); return Math.abs(n) >= 1000 ? (n / 1000).toFixed(1).replace(".", ",") + " kW" : n + " W"; }
+  function hhmm(t) { var d = new Date(t); return zwei(d.getHours()) + ":" + zwei(d.getMinutes()); }
+  function komma(n, st) { return n.toFixed(st).replace(".", ","); }
+  function tausend(n, st) { var s = komma(n, st), i = s.indexOf(","), g = i < 0 ? s : s.slice(0, i), r = i < 0 ? "" : s.slice(i); return g.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + r; }
+  function watt(n) { if (n == null) return "–"; n = Math.round(n); return Math.abs(n) >= 1000 ? komma(n / 1000, 1) + " kW" : n + " W"; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function lies(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function schreib(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+
   function ausHash() {
     var m = location.hash.match(/[#&]pv=([^&]*)/);
     if (!m) return null;
     var roh = decodeURIComponent(m[1]).replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/");
     var j = JSON.parse(decodeURIComponent(escape(atob(roh))));
-    var d = j && j.data ? j.data : j, sb = d.solarbank_info || {}, gi = d.grid_info || {};
+    var d = j && j.data ? j.data : j, sb = d.solarbank_info || {}, gi = d.grid_info || {}, liste = sb.solarbank_list || [];
     var soc = zahl(sb.total_battery_power);
     if (soc != null && soc <= 1.01) soc = soc * 100;
-    var laden = zahl(sb.total_charging_power), entladen = zahl(sb.battery_discharge_power);
+    var pvs = [], i, geraete = [], erweiterungen = 0;
+    for (i = 1; i <= 4; i++) { var p = zahl(sb["solar_power_" + i]); if (p != null) pvs.push(p); }
+    for (i = 0; i < liste.length; i++) {
+      geraete.push({ name: liste[i].device_name || liste[i].device_pn || "Solarbank", an: String(liste[i].status) === "1" });
+      erweiterungen += parseInt(liste[i].sub_package_num, 10) || 0;
+    }
+    var gl = gi.grid_list || [];
+    for (i = 0; i < gl.length; i++) geraete.push({ name: gl[i].device_name || "Smart Meter", an: String(gl[i].status) === "1" });
+    var stat = {}, st = d.statistics || [];
+    for (i = 0; i < st.length; i++) stat[st[i].type] = zahl(st[i].total);
+    var ki = d.aiems_profit || {};
     return {
       zeit: Date.now(),
+      anker: sb.updated_time || "",
       pv: zahl(sb.total_photovoltaic_power),
+      pvs: pvs,
       soc: soc == null ? null : Math.round(soc),
-      akku: (laden || 0) - (entladen || 0),           // + lädt, - entlädt
+      kwh: AKKU_KWH * ((liste.length || 1) + erweiterungen),
+      laden: zahl(sb.total_charging_power),
+      entladen: zahl(sb.battery_discharge_power),
+      zuHaus: zahl(sb.to_home_load) != null ? zahl(sb.to_home_load) : zahl(sb.total_output_power),
       haus: zahl(d.home_load_power),
       bezug: zahl(gi.grid_to_home_power),
       einspeisung: zahl(gi.photovoltaic_to_grid_power),
+      grundlast: zahl(d.retain_load),
+      erzeugt: stat["1"], co2: stat["2"], gespart: stat["3"],
+      kiGespart: zahl(ki.aiems_profit_total), kiProzent: zahl(ki.percentage), waehrung: ki.unit || "€",
+      geraete: geraete,
       fehler: j && j.code ? (j.msg || "Fehler " + j.code) : null
     };
   }
   var letzte = null; // falls der Speicher nicht geht, wenigstens bis zum Neuladen zeigen
-  function laden() { try { var d = JSON.parse(localStorage.getItem(SPEICHER)); if (d) return d; } catch (e) {} return letzte; }
-  function speichern(d) { letzte = d; try { localStorage.setItem(SPEICHER, JSON.stringify(d)); } catch (e) {} }
+  function laden() { try { var d = JSON.parse(lies(SPEICHER)); if (d) return d; } catch (e) {} return letzte; }
+  function speichern(d) { letzte = d; schreib(SPEICHER, JSON.stringify(d)); }
+  var verlaufNotfall = [];
+  function verlauf() { try { var v = JSON.parse(lies(VERLAUF)); if (v && v.length) return v; } catch (e) {} return verlaufNotfall; }
+  function merkeVerlauf(d) {
+    if (d.fehler || d.pv == null) return;
+    var v = verlauf(), grenze = Date.now() - 48 * 3600 * 1000, neu = [];
+    for (var i = 0; i < v.length; i++) if (v[i].t > grenze && d.zeit - v[i].t > 60000) neu.push(v[i]);
+    neu.push({ t: d.zeit, pv: d.pv, haus: d.haus, soc: d.soc });
+    verlaufNotfall = neu;
+    schreib(VERLAUF, JSON.stringify(neu));
+  }
+
+  /* ---------- Kachel in der Übersicht ---------- */
   var SONNE = '<svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="#ffc933"/><g stroke="#ffc933" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></svg>';
+  function akkuFarbe(f) { return f < 20 ? "#ff5d6c" : f < 50 ? "#ffc933" : "#30d158"; }
   function akkuSvg(soc) {
-    var f = soc == null ? 0 : Math.max(0, Math.min(100, soc)), farbe = f < 20 ? "#ff5d6c" : f < 50 ? "#ffc933" : "#30d158";
-    return '<svg width="30" height="16" viewBox="0 0 30 16"><rect x="1" y="1" width="25" height="14" rx="3" fill="none" stroke="#b9c4d6" stroke-width="1.6"/><rect x="27" y="5" width="2.4" height="6" rx="1" fill="#b9c4d6"/><rect x="3" y="3" width="' + (21 * f / 100).toFixed(1) + '" height="10" rx="1.5" fill="' + farbe + '"/></svg>';
+    var f = soc == null ? 0 : Math.max(0, Math.min(100, soc));
+    return '<svg width="30" height="16" viewBox="0 0 30 16"><rect x="1" y="1" width="25" height="14" rx="3" fill="none" stroke="#b9c4d6" stroke-width="1.6"/><rect x="27" y="5" width="2.4" height="6" rx="1" fill="#b9c4d6"/><rect x="3" y="3" width="' + (21 * f / 100).toFixed(1) + '" height="10" rx="1.5" fill="' + akkuFarbe(f) + '"/></svg>';
   }
   function zeichnen() {
     var el = document.getElementById("solar");
@@ -1128,21 +1172,172 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var d = laden();
     if (!d) { el.style.display = "none"; return; }
     el.style.display = "";
-    var alt = (Date.now() - d.zeit) / 60000 > ALT_MIN, t = new Date(d.zeit);
+    var alt = (Date.now() - d.zeit) / 60000 > ALT_MIN;
     var netz = d.einspeisung > 0 ? '<span class="so-ein">↑ ' + watt(d.einspeisung) + "</span> Netz"
       : d.bezug != null ? '<span class="so-bez">↓ ' + watt(d.bezug) + "</span> Netz" : "";
     el.className = alt ? "alt" : "";
     el.innerHTML = SONNE +
       '<div><div class="so-gross">' + watt(d.pv) + '<span class="so-akku">' + akkuSvg(d.soc) + (d.soc == null ? "–" : d.soc + " %") + "</span></div>" +
       '<div class="so-klein">Haus ' + watt(d.haus) + (netz ? " · " + netz : "") + "</div>" +
-      (d.fehler || alt ? '<div class="so-klein so-stand">' + (d.fehler ? "Anker: " + d.fehler : "Stand " + zwei(t.getHours()) + ":" + zwei(t.getMinutes())) + "</div>" : "") + "</div>";
+      (d.fehler || alt ? '<div class="so-klein so-stand">' + (d.fehler ? "Anker: " + esc(d.fehler) : "Stand " + hhmm(d.zeit)) + "</div>" : "") + "</div>";
+    detail();
   }
+
+  /* ---------- Detailansicht ---------- */
+  var FARBE = { pv: "#ffc933", akku: "#30d158", haus: "#6cc0ff", netz: "#c99bff" };
+  var SYM = {
+    pv: '<g stroke="#ffc933" stroke-width="2.2" stroke-linecap="round" fill="none"><circle r="8" fill="#ffc933" stroke="none"/><path d="M0-19v5M0 14v5M-19 0h5M14 0h5M-13.4-13.4l3.5 3.5M9.9 9.9l3.5 3.5M-13.4 13.4l3.5-3.5M9.9-9.9l3.5-3.5"/></g>',
+    haus: '<path d="M-15 1 0-13 15 1M-11-2v15h22V-2" fill="none" stroke="#6cc0ff" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/><rect x="-4" y="4" width="8" height="9" fill="#6cc0ff"/>',
+    netz: '<path d="M-9 15-3-15h6l6 30M-12-8h24M-14 1h28M-6-8l12 9M6-8-6 1" fill="none" stroke="#c99bff" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>',
+    bank: '<rect x="-17" y="-11" width="34" height="22" rx="4" fill="none" stroke="#dfe6f2" stroke-width="2.4"/><path d="M-9-4h18M-9 3h12" stroke="#dfe6f2" stroke-width="2.2" stroke-linecap="round"/>'
+  };
+  function akkuSym(soc) {
+    var f = soc == null ? 0 : Math.max(0, Math.min(100, soc));
+    return '<rect x="-15" y="-9" width="27" height="18" rx="3.5" fill="none" stroke="#dfe6f2" stroke-width="2.2"/><rect x="13" y="-4" width="3" height="8" rx="1" fill="#dfe6f2"/>' +
+      '<rect x="-12.5" y="-6.5" width="' + (22 * f / 100).toFixed(1) + '" height="13" rx="1.5" fill="' + akkuFarbe(f) + '"/>';
+  }
+  function knoten(p, farbe, symbol, titel, wert, klein) {
+    return '<g transform="translate(' + p[0] + "," + p[1] + ')"><circle r="34" fill="#1b2433" stroke="' + farbe + '" stroke-width="2.5"/>' + symbol +
+      '<text y="56" text-anchor="middle" class="sd-k-titel">' + titel + '</text><text y="80" text-anchor="middle" class="sd-k-wert">' + wert + "</text>" +
+      (klein ? '<text y="99" text-anchor="middle" class="sd-k-klein">' + klein + "</text>" : "") + "</g>";
+  }
+  // Leitung von a nach b; aktiv = Strom fließt in dieser Richtung (wandernde Punkte)
+  function leitung(a, b, farbe, aktiv) {
+    var k = 'x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '"';
+    return "<line " + k + ' stroke="' + (aktiv ? farbe : "#2c3647") + '" stroke-width="' + (aktiv ? 3 : 2) + '" stroke-linecap="round" opacity="' + (aktiv ? 0.35 : 1) + '"/>' +
+      (aktiv ? '<line class="sd-fluss" ' + k + ' stroke="' + farbe + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 17"/>' : "");
+  }
+  function fluss(d) {
+    var pv = d.pv || 0, ld = d.laden || 0, entl = d.entladen || 0, zuHaus = d.zuHaus || 0, bezug = d.bezug || 0, ein = d.einspeisung || 0;
+    var B = [290, 150], S = [90, 55], A = [90, 245], H = [490, 55], N = [490, 245];
+    var g = '<svg viewBox="0 0 580 360" width="100%" class="sd-fluss-svg">';
+    g += leitung(S, B, FARBE.pv, pv > 0);
+    g += ld > 0 ? leitung(B, A, FARBE.akku, true) : leitung(A, B, FARBE.akku, entl > 0);
+    g += leitung(B, H, FARBE.haus, zuHaus > 0);
+    g += ein > 0 ? leitung(H, N, FARBE.netz, true) : leitung(N, H, FARBE.netz, bezug > 0);
+    g += '<g transform="translate(' + B[0] + "," + B[1] + ')"><circle r="30" fill="#232f42" stroke="#dfe6f2" stroke-width="2"/>' + SYM.bank +
+      '<text y="50" text-anchor="middle" class="sd-k-klein">Solarbank</text><text y="68" text-anchor="middle" class="sd-k-klein">ans Haus ' + watt(zuHaus) + "</text></g>";
+    g += knoten(S, FARBE.pv, SYM.pv, "Solar", watt(pv), "");
+    g += knoten(A, FARBE.akku, akkuSym(d.soc), "Akku " + (d.soc == null ? "–" : d.soc + " %"), ld > 0 ? "lädt " + watt(ld) : entl > 0 ? "gibt " + watt(entl) : "Ruhe", "");
+    g += knoten(H, FARBE.haus, SYM.haus, "Haus", watt(d.haus), "");
+    g += knoten(N, FARBE.netz, SYM.netz, "Netz", ein > 0 ? "↑ " + watt(ein) : "↓ " + watt(bezug), ein > 0 ? "Einspeisung" : "Bezug");
+    return g + "</svg>";
+  }
+  function kachel(titel, wert, klein, farbe) {
+    return '<div class="sd-kachel"><div class="sd-t">' + (farbe ? '<i style="background:' + farbe + '"></i>' : "") + titel + '</div><div class="sd-w">' + wert + "</div>" + (klein ? '<div class="sd-kl">' + klein + "</div>" : "") + "</div>";
+  }
+  function diagramm(v) {
+    var jetzt = Date.now(), von = jetzt - 24 * 3600 * 1000, pkt = [], i;
+    for (i = 0; i < v.length; i++) if (v[i].t >= von) pkt.push(v[i]);
+    if (pkt.length < 2) return '<div class="sd-leer">Der Verlauf füllt sich, sobald „Solar“ öfter gelaufen ist (am besten stündlich per Automation).</div>';
+    var W = 560, Hh = 138, L = 48, R = 10, O = 10, U = 22, max = 100;
+    for (i = 0; i < pkt.length; i++) max = Math.max(max, pkt[i].pv || 0, pkt[i].haus || 0);
+    var stufe = max > 2000 ? 1000 : max > 800 ? 500 : max > 300 ? 200 : 100;
+    max = Math.ceil(max / stufe) * stufe;
+    function x(t) { return L + (t - von) / (jetzt - von) * (W - L - R); }
+    function y(w) { return O + (1 - w / max) * (Hh - O - U); }
+    var s = '<svg viewBox="0 0 ' + W + " " + Hh + '" width="100%">';
+    for (var w = 0; w <= max; w += stufe) s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(w) + '" y2="' + y(w) + '" stroke="#2c3647" stroke-width="1"/><text x="' + (L - 6) + '" y="' + (y(w) + 4) + '" text-anchor="end" class="sd-achse">' + watt(w) + "</text>";
+    for (var h = 0; h <= 24; h += 6) { var t = von + h * 3600 * 1000; s += '<text x="' + x(t) + '" y="' + (Hh - 5) + '" text-anchor="' + (h === 24 ? "end" : "middle") + '" class="sd-achse">' + (h === 24 ? "jetzt" : hhmm(t)) + "</text>"; }
+    function linie(feld, farbe) {
+      var p = "", z = 0, l = null;
+      for (var k = 0; k < pkt.length; k++) if (pkt[k][feld] != null) { p += (z++ ? "L" : "M") + x(pkt[k].t).toFixed(1) + "," + y(pkt[k][feld]).toFixed(1); l = pkt[k]; }
+      return '<path d="' + p + '" fill="none" stroke="' + farbe + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+        (l ? '<circle cx="' + x(l.t) + '" cy="' + y(l[feld]) + '" r="4" fill="' + farbe + '" stroke="#1b2433" stroke-width="2"/>' : "");
+    }
+    return s + linie("haus", FARBE.haus) + linie("pv", FARBE.pv) + "</svg>";
+  }
+  function alterText(d) {
+    var min = Math.round((Date.now() - d.zeit) / 60000);
+    return min < 1 ? "gerade eben" : min < 60 ? "vor " + min + " Min" : "um " + hhmm(d.zeit);
+  }
+  function detail() {
+    var el = document.getElementById("solar-detail");
+    if (!el) {
+      var fuss = document.querySelector(".fuss");
+      if (!fuss || !fuss.parentNode) return;
+      el = document.createElement("div"); el.id = "solar-detail";
+      fuss.parentNode.insertBefore(el, fuss);
+      el.addEventListener("click", function (e) {
+        var t = e.target;
+        while (t && t !== el) { if (t.id === "sd-neu") { e.stopPropagation(); aktualisieren(); return; } t = t.parentNode; }
+      }, false);
+    }
+    var d = laden();
+    if (!d) { el.innerHTML = ""; return; }
+    var haus = d.haus || 0, zuHaus = d.zuHaus || 0, eigen = haus > 0 ? Math.min(100, Math.round(zuHaus / haus * 100)) : null;
+    var rest = d.soc != null && d.kwh ? d.kwh * d.soc / 100 : null, i, pvKl = [];
+    for (i = 0; i < (d.pvs || []).length; i++) if (d.pvs[i] > 0) pvKl.push("PV" + (i + 1) + " " + watt(d.pvs[i]));
+    if (!pvKl.length && d.pvs && d.pvs.length) pvKl.push("alle Eingänge ohne Leistung");
+    var html = '<div class="sd-kopf"><span class="sd-name">Balkonkraftwerk</span><span class="sd-alter">Werte ' + alterText(d) + '</span><span id="sd-neu"' + (laeuft() ? ' class="laeuft"' : "") + '>' + (laeuft() ? "Hole Werte …" : "↻ Aktualisieren") + "</span></div>" +
+      '<div class="sd-oben"><div class="sd-box sd-fluss-box"><div class="sd-titel">Energiefluss</div>' + fluss(d) + "</div>" +
+      '<div class="sd-rechts">' +
+        '<div class="sd-box sd-akku"><div class="sd-titel">Akku</div><div class="sd-akku-zeile"><div class="sd-akku-gross">' + (d.soc == null ? "–" : d.soc + "<small> %</small>") + "</div>" +
+          '<div class="sd-akku-balken"><div style="width:' + Math.max(0, Math.min(100, d.soc || 0)) + "%;background:" + akkuFarbe(d.soc || 0) + '"></div></div></div>' +
+          '<div class="sd-kl">' + (rest != null ? "ca. " + komma(rest, 2) + " von " + komma(d.kwh, 2) + " kWh · " : "") + (d.laden > 0 ? "lädt mit " + watt(d.laden) : d.entladen > 0 ? "entlädt mit " + watt(d.entladen) : "lädt und entlädt gerade nicht") + "</div></div>" +
+        '<div class="sd-kacheln">' +
+          kachel("Solar", watt(d.pv), pvKl.join(" · "), FARBE.pv) +
+          kachel("Haus", watt(d.haus), eigen != null ? eigen + " % von der Solarbank" : "", FARBE.haus) +
+          kachel(d.einspeisung > 0 ? "Einspeisung" : "Netzbezug", watt(d.einspeisung > 0 ? d.einspeisung : d.bezug), d.einspeisung > 0 ? "ins Netz" : "aus dem Netz", FARBE.netz) +
+          kachel("Grundlast", watt(d.grundlast), "eingestellte Abgabe ans Haus", "") +
+        "</div>" +
+      "</div></div>" +
+      '<div class="sd-unten"><div class="sd-box sd-verlauf"><div class="sd-titel">Letzte 24 Stunden <span class="sd-leg"><i style="background:' + FARBE.pv + '"></i>Solar <i style="background:' + FARBE.haus + '"></i>Haus</span></div>' + diagramm(verlauf()) + "</div>" +
+      '<div class="sd-box sd-bilanz"><div class="sd-titel">Bilanz seit Inbetriebnahme</div>' +
+        '<div class="sd-b-zeile"><span>Erzeugt</span><b>' + (d.erzeugt != null ? tausend(d.erzeugt, 0) + " kWh" : "–") + "</b></div>" +
+        '<div class="sd-b-zeile"><span>Eingespart</span><b>' + (d.gespart != null ? tausend(d.gespart, 2) + " " + esc(d.waehrung || "€") : "–") + "</b></div>" +
+        '<div class="sd-b-zeile"><span>CO₂ vermieden</span><b>' + (d.co2 != null ? tausend(d.co2, 0) + " kg" : "–") + "</b></div>" +
+        (d.kiGespart != null ? '<div class="sd-b-zeile"><span>Davon durch KI-Steuerung</span><b>' + tausend(d.kiGespart, 2) + " " + esc(d.waehrung || "€") + (d.kiProzent != null ? " <small>(" + komma(d.kiProzent, 1) + " %)</small>" : "") + "</b></div>" : "") +
+      "</div></div>";
+    var ger = [];
+    for (i = 0; i < (d.geraete || []).length; i++) ger.push('<span class="' + (d.geraete[i].an ? "sd-an" : "sd-aus") + '">●</span> ' + esc(d.geraete[i].name) + (d.geraete[i].an ? "" : " (offline)"));
+    html += '<div class="sd-fuss">' + ger.join(" &nbsp; ") + (ger.length ? " &nbsp;·&nbsp; " : "") + "Abgerufen " + hhmm(d.zeit) + (d.anker ? " · Anker-Stand " + esc(d.anker.slice(11, 16)) : "") + (d.fehler ? ' · <span class="sd-aus">Anker: ' + esc(d.fehler) + "</span>" : "") + "</div>";
+    el.innerHTML = html;
+  }
+
+  /* ---------- Aktualisieren über den Kurzbefehl ---------- */
+  var gestartet = 0;
+  function laeuft() { return Date.now() - gestartet < 60000; }
+  function aktualisieren() {
+    gestartet = Date.now();
+    schreib(WIEDER_AUF, String(gestartet)); // neue Seite öffnet die Detailansicht wieder
+    detail();
+    location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent("Solar");
+  }
+  window.SolarGeoeffnet = function () { // aus fokus.js, direkt beim Antippen der Kachel
+    var d = laden();
+    if (!d || (Date.now() - d.zeit) / 60000 > FRISCH_MIN) aktualisieren();
+  };
+  // Fluss-Punkte wandern lassen (nur wenn die Detailansicht offen ist)
+  var versatz = 0, warOffen = false;
+  setInterval(function () {
+    var offen = /\bfokus-solar\b/.test(document.body.className);
+    if (offen && !warOffen) detail(); // Alter-Anzeige auffrischen
+    warOffen = offen;
+    if (!offen) return;
+    versatz = (versatz - 1.5) % 18;
+    var l = document.querySelectorAll("#solar-detail .sd-fluss");
+    for (var i = 0; i < l.length; i++) l[i].setAttribute("stroke-dashoffset", versatz);
+  }, 50);
+
   function start() {
-    try { var neu = ausHash(); if (neu) { if (neu.fehler) { var a = laden(); if (a) { a.fehler = neu.fehler; neu = a; } } speichern(neu); } } catch (e) { if (/[#&]pv=/.test(location.hash)) speichern({ zeit: Date.now(), fehler: "Daten unlesbar (" + location.hash.length + " Zeichen): " + e.message }); }
+    var neu = null;
+    try {
+      neu = ausHash();
+      if (neu) {
+        if (neu.fehler) { var a = laden(); if (a) { a.fehler = neu.fehler; neu = a; } }
+        speichern(neu); merkeVerlauf(neu);
+      }
+    } catch (e) { if (/[#&]pv=/.test(location.hash)) speichern({ zeit: Date.now(), fehler: "Daten unlesbar (" + location.hash.length + " Zeichen): " + e.message }); }
     zeichnen();
+    var auf = parseInt(lies(WIEDER_AUF), 10);
+    if (neu && auf && Date.now() - auf < 3 * 60000) {
+      schreib(WIEDER_AUF, null);
+      setTimeout(function () { if (window.Fokus) window.Fokus("solar"); }, 300); // fokus.js ist dann geladen
+    }
   }
   var stil = document.createElement("style");
-  stil.innerHTML = "#solar { float: right; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; background: rgba(255,255,255,.07); border-radius: 16px; padding: 7px 14px 7px 10px; margin: -2px 12px 0 0; line-height: 1.2; color: #fff; }" +
+  stil.innerHTML = "#solar { float: right; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; background: rgba(255,255,255,.07); border-radius: 16px; padding: 7px 14px 7px 10px; margin: -2px 12px 0 0; line-height: 1.2; color: #fff; cursor: pointer; }" +
     "#solar > svg { margin-right: 10px; -webkit-flex-shrink: 0; flex-shrink: 0; }" +
     "#solar .so-gross { font-size: 24px; font-weight: 600; white-space: nowrap; }" +
     "#solar .so-akku { font-size: 18px; font-weight: 600; margin-left: 10px; color: #dfe6f2; }" +
@@ -1151,7 +1346,33 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     "#solar .so-stand { font-size: 12px; color: #8f9bb0; }" +
     "#solar .so-ein { color: #30d158; font-weight: 600; } #solar .so-bez { color: #ffc933; font-weight: 600; }" +
     "#solar.alt { opacity: .55; }" +
-    "body.fokus-abf #solar, body.fokus-vp #solar, body.fokus-wetter #solar, body.fokus-kal #solar { display: none !important; }";
+    "body.fokus-abf #solar, body.fokus-vp #solar, body.fokus-wetter #solar, body.fokus-kal #solar, body.fokus-solar #solar { display: none !important; }" +
+    "#solar-detail { display: none; margin: 2px 12px 8px; color: #fff; }" +
+    "body.fokus-solar #solar-detail { display: block; }" +
+    "body.fokus-solar .abf-titel, body.fokus-solar #raster, body.fokus-solar .vp-bereich, body.fokus-solar .fuss, body.fokus-solar .kal-bereich, body.fokus-solar #wetter-detail," +
+    " body.fokus-solar #wetter, body.fokus-solar .stand { display: none !important; }" +
+    ".sd-kopf { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; margin: 0 2px 10px; }" +
+    ".sd-name { font-size: 22px; font-weight: 700; margin-right: 14px; } .sd-alter { font-size: 15px; color: #8f9bb0; -webkit-flex: 1; flex: 1; }" +
+    "#sd-neu { font-size: 16px; font-weight: 600; color: #fff; background: rgba(255,255,255,.12); border-radius: 18px; padding: 7px 16px; cursor: pointer; } #sd-neu.laeuft { color: #ffc933; }" +
+    ".sd-box { background: #1b2433; border-radius: 16px; padding: 9px 14px 10px; box-sizing: border-box; }" +
+    ".sd-titel { font-size: 12px; font-weight: 600; color: #8f9bb0; text-transform: uppercase; letter-spacing: .5px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,.08); margin-bottom: 6px; }" +
+    ".sd-oben, .sd-unten { display: -webkit-flex; display: flex; -webkit-align-items: stretch; align-items: stretch; margin-bottom: 12px; }" +
+    ".sd-fluss-box { -webkit-flex: 1.15; flex: 1.15; min-width: 0; margin-right: 12px; } .sd-fluss-svg { display: block; }" +
+    ".sd-k-titel { font-size: 15px; font-weight: 600; fill: #b9c4d6; } .sd-k-wert { font-size: 21px; font-weight: 600; fill: #fff; } .sd-k-klein { font-size: 13px; fill: #8f9bb0; }" +
+    ".sd-rechts { -webkit-flex: 1; flex: 1; min-width: 0; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }" +
+    ".sd-akku { margin-bottom: 8px; } .sd-akku-zeile { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; }" +
+    ".sd-akku-gross { font-size: 52px; font-weight: 300; line-height: 1.05; margin-right: 16px; letter-spacing: -1px; } .sd-akku-gross small { font-size: 24px; font-weight: 500; }" +
+    ".sd-akku-balken { -webkit-flex: 1; flex: 1; height: 14px; border-radius: 7px; background: #0f1520; overflow: hidden; } .sd-akku-balken div { height: 100%; border-radius: 7px; }" +
+    ".sd-kacheln { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin: -4px; -webkit-flex: 1; flex: 1; }" +
+    ".sd-kachel { width: -webkit-calc(50% - 8px); width: calc(50% - 8px); margin: 4px; box-sizing: border-box; background: #1b2433; border-radius: 14px; padding: 9px 12px; }" +
+    ".sd-t { font-size: 12px; font-weight: 600; color: #8f9bb0; text-transform: uppercase; letter-spacing: .5px; } .sd-t i, .sd-leg i { display: inline-block; width: 9px; height: 9px; border-radius: 5px; margin-right: 6px; }" +
+    ".sd-w { font-size: 26px; font-weight: 600; margin-top: 3px; } .sd-kl { font-size: 13px; color: #a8b3c5; margin-top: 3px; }" +
+    ".sd-verlauf { -webkit-flex: 1.4; flex: 1.4; min-width: 0; margin-right: 12px; } .sd-bilanz { -webkit-flex: 1; flex: 1; min-width: 0; }" +
+    ".sd-leg { float: right; text-transform: none; letter-spacing: 0; font-size: 13px; color: #b9c4d6; } .sd-leg i { margin-left: 12px; }" +
+    ".sd-achse { font-size: 11px; fill: #8f9bb0; } .sd-leer { color: #8f9bb0; font-size: 15px; padding: 34px 10px; text-align: center; }" +
+    ".sd-b-zeile { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: baseline; align-items: baseline; padding: 7px 0; border-top: 1px solid rgba(255,255,255,.06); font-size: 16px; color: #b9c4d6; }" +
+    ".sd-b-zeile:nth-child(2) { border-top: 0; } .sd-b-zeile b { font-size: 22px; color: #fff; font-weight: 600; } .sd-b-zeile small { font-size: 13px; color: #8f9bb0; font-weight: 500; }" +
+    ".sd-fuss { font-size: 12px; color: #8f9bb0; padding: 0 4px; } .sd-an { color: #30d158; } .sd-aus { color: #ff5d6c; }";
   document.head.appendChild(stil);
   start();
   window.addEventListener("hashchange", start);
