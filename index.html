@@ -1357,7 +1357,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   var SPEICHER = "vertretungsplan_v1";
   var TAGE_ANZEIGEN = 2;
   var ZEILEN = 6;
-  var SA_ANZAHL = 3; // so viele kommende Schulaufgaben pro Kind // feste Zeilenzahl pro Kind, damit sich das Layout nicht verschiebt
+  var SA_ANZAHL = 3;
+  // Im Stundenplan bei geteilten Fächern („Sm/Sw“) diese Teile pro Kind (Vorname) weglassen
+  var SP_WEGLASSEN = { Anna: ["Sm", "K", "Eth"], Felix: ["Sw", "K", "Eth"] }; // so viele kommende Schulaufgaben pro Kind // feste Zeilenzahl pro Kind, damit sich das Layout nicht verschiebt
   var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
   function iso(d) {
@@ -1523,6 +1525,13 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var ende = m[3] ? p2(+m[3]) + ":" + m[4] : (function () { var t = +m[1] * 60 + +m[2] + 45; return p2(Math.floor(t / 60)) + ":" + p2(t % 60); })();
     return p2(+m[1]) + ":" + m[2] + "–" + ende;
   }
+  function spFach(f, name) {
+    var weg = SP_WEGLASSEN[String(name).split(" ")[0]];
+    if (!weg || f.indexOf("/") < 0) return f;
+    var teile = f.split("/"), rest = [];
+    for (var i = 0; i < teile.length; i++) if (weg.indexOf(teile[i].replace(/^\s+|\s+$/g, "")) < 0) rest.push(teile[i]);
+    return rest.length ? rest.join("/") : f;
+  }
   function spBlock(k) {
     var sp = k.stundenplan;
     if (!sp) return '<div class="vp-sp"><div class="vp-tagname">Stundenplan</div><div class="vp-sa-keine">' +
@@ -1535,7 +1544,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       html += '<tr><td class="vp-sp-nr">' + esc(st.nr) + (st.zeit ? "<small>" + esc(spZeit(st.zeit)).replace("–", "<br>") + "</small>" : "") + "</td>";
       for (var t = 0; t < sp.tage.length; t++) {
         var z = st.zellen[t] || [];
-        html += "<td" + (sp.tage[t] === heuteWt ? ' class="vp-sp-heute"' : "") + ">" + (z.length ? "<b>" + esc(z[0]) + "</b>" : "") + "</td>";
+        html += "<td" + (sp.tage[t] === heuteWt ? ' class="vp-sp-heute"' : "") + ">" + (z.length ? "<b>" + esc(spFach(z[0], k.name)) + "</b>" : "") + "</td>";
       }
       html += "</tr>";
     }
