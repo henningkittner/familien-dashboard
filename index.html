@@ -1109,8 +1109,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       fehler: j && j.code ? (j.msg || "Fehler " + j.code) : null
     };
   }
-  function laden() { try { return JSON.parse(localStorage.getItem(SPEICHER)); } catch (e) { return null; } }
-  function speichern(d) { try { localStorage.setItem(SPEICHER, JSON.stringify(d)); } catch (e) {} }
+  var letzte = null; // falls der Speicher nicht geht, wenigstens bis zum Neuladen zeigen
+  function laden() { try { var d = JSON.parse(localStorage.getItem(SPEICHER)); if (d) return d; } catch (e) {} return letzte; }
+  function speichern(d) { letzte = d; try { localStorage.setItem(SPEICHER, JSON.stringify(d)); } catch (e) {} }
   var SONNE = '<svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="#ffc933"/><g stroke="#ffc933" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></svg>';
   function akkuSvg(soc) {
     var f = soc == null ? 0 : Math.max(0, Math.min(100, soc)), farbe = f < 20 ? "#ff5d6c" : f < 50 ? "#ffc933" : "#30d158";
