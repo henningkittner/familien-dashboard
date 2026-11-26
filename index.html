@@ -1195,8 +1195,16 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       : d.bezug != null ? '<span class="so-bez">↓ ' + watt(d.bezug) + "</span> Netz" : "";
     el.className = alt ? "alt" : "";
     el.innerHTML = SONNE + '<div><div class="so-gross">Solar</div></div>';
+    gleicheGroesse();
     detail();
   }
+
+  function gleicheGroesse() {
+    var el = document.getElementById("solar"), w = document.getElementById("wetter");
+    if (!el || !w || !w.offsetHeight || el.style.display === "none") return;
+    el.style.height = w.offsetHeight + "px";
+  }
+  setInterval(gleicheGroesse, 5000);
 
   /* ---------- Detailansicht ---------- */
   var FARBE = { pv: "#ffc933", akku: "#30d158", haus: "#6cc0ff", netz: "#c99bff" };
@@ -1313,6 +1321,37 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     return balken("Erzeugt", t.erzeugt, [["ins Haus", t.insHaus, FARBE.pv], ["in den Akku", t.inAkku, FARBE.akku], ["ins Netz", t.insNetz, FARBE.netz]]) +
       balken("Verbraucht", t.verbrauch, [["Sonne", t.ausSolar, FARBE.pv], ["Akku", t.ausAkku, FARBE.akku], ["Netz", t.ausNetz, FARBE.netz]]);
   }
+  function flaecheE(t) {
+    var W = 1000, Hh = 300, L = 52, R = 8, O = 22, U = 24, n = Math.max(t.kSolar.length, t.kHaus.length), max = 100, i;
+    if (n < 2) return "";
+    for (i = 0; i < n; i++) max = Math.max(max, t.kSolar[i] || 0, t.kHaus[i] || 0);
+    var stufe = max > 2000 ? 1000 : max > 800 ? 500 : max > 300 ? 200 : 100;
+    max = Math.ceil(max / stufe) * stufe;
+    var jetzt = new Date(), bis = Math.min(n - 1, Math.floor((jetzt.getHours() * 60 + jetzt.getMinutes()) / 20));
+    function x(k) { return L + k / (n - 1) * (W - L - R); }
+    function y(w) { return O + (1 - w / max) * (Hh - O - U); }
+    var s = '<svg viewBox="0 0 ' + W + " " + Hh + '" width="100%" class="se-svg">';
+    for (var w = stufe; w <= max; w += stufe) s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(w) + '" y2="' + y(w) + '" stroke="#26303f" stroke-width="1"/><text x="' + (L - 8) + '" y="' + (y(w) + 4) + '" text-anchor="end" class="sd-achse">' + watt(w) + "</text>";
+    for (var h = 0; h <= 24; h += 3) s += '<text x="' + x(h * 3) + '" y="' + (Hh - 5) + '" text-anchor="' + (h === 0 ? "start" : h === 24 ? "end" : "middle") + '" class="sd-achse">' + zwei(h) + ":00</text>";
+    function linie(a) { var p = ""; for (var k = 0; k <= bis && k < a.length; k++) p += (k ? "L" : "M") + x(k).toFixed(1) + "," + y(a[k] || 0).toFixed(1); return p; }
+    function flaeche(a, farbe, deck) { var p = linie(a); if (!p) return ""; var e = Math.min(bis, a.length - 1);
+      return '<path d="' + p + "L" + x(e).toFixed(1) + "," + y(0) + "L" + x(0) + "," + y(0) + 'Z" fill="' + farbe + '" opacity="' + deck + '"/><path d="' + p + '" fill="none" stroke="' + farbe + '" stroke-width="2" stroke-linejoin="round"/>'; }
+    s += flaeche(t.kHaus, FARBE.haus, ".28") + flaeche(t.kSolar, FARBE.pv, ".45");
+    s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(0) + '" y2="' + y(0) + '" stroke="#3a4557" stroke-width="1"/>';
+    if (bis < n - 1) { var nx = x(bis); s += '<line x1="' + nx + '" x2="' + nx + '" y1="' + (O - 8) + '" y2="' + y(0) + '" stroke="#fff" stroke-dasharray="3 4" opacity=".5"/><text x="' + (nx + 6) + '" y="' + (O + 2) + '" fill="#fff" font-size="13" opacity=".8">jetzt</text>'; }
+    return s + "</svg>";
+  }
+  function teslaE(d, t) {
+    var autark = t.verbrauch > 0 ? Math.max(0, Math.min(100, Math.round((t.verbrauch - (t.ausNetz || 0)) / t.verbrauch * 100))) : null;
+    function wert(text, n, farbe) { return '<div class="se-wert"><div class="se-wt"><i style="background:' + farbe + '"></i>' + text + '</div><div class="se-wz">' + (n == null ? "–" : komma(n, n < 10 ? 2 : 1)) + "<small> kWh</small></div></div>"; }
+    function live(text, w, farbe) { return '<div class="se-live" style="border-top-color:' + farbe + '"><div class="se-lt">' + text + '</div><div class="se-lw">' + w + "</div></div>"; }
+    var akkuTxt = (d.soc == null ? "–" : d.soc + " %") + (d.laden > 0 ? " · lädt" : d.entladen > 0 ? " · entlädt" : "");
+    var netzTxt = d.einspeisung > 0 ? "↑ " + watt(d.einspeisung) : d.bezug != null ? "↓ " + watt(d.bezug) : "–";
+    return '<div class="se-gross">' + (autark == null ? "–" : autark + " %") + '<span> selbst versorgt</span></div>' +
+      '<div class="se-werte">' + wert("Sonne erzeugt", t.erzeugt, FARBE.pv) + wert("Haus verbraucht", t.verbrauch, FARBE.haus) + wert("Akku geliefert", t.ausAkku, FARBE.akku) + wert("Netz geliefert", t.ausNetz, FARBE.netz) + "</div>" +
+      '<div class="sd-box se-kurve">' + flaecheE(t) + "</div>" +
+      '<div class="se-lives">' + live("Solar jetzt", watt(d.pv), FARBE.pv) + live("Haus jetzt", watt(d.haus), FARBE.haus) + live("Akku", akkuTxt, FARBE.akku) + live("Netz jetzt", netzTxt, FARBE.netz) + "</div>";
+  }
   function alterText(d) {
     var min = Math.round((Date.now() - d.zeit) / 60000);
     return min < 1 ? "gerade eben" : min < 60 ? "vor " + min + " Min" : "um " + hhmm(d.zeit);
@@ -1337,7 +1376,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var rest = d.soc != null && d.kwh ? d.kwh * d.soc / 100 : null, i, pvKl = [];
     for (i = 0; i < (d.pvs || []).length; i++) if (d.pvs[i] > 0) pvKl.push("PV" + (i + 1) + " " + watt(d.pvs[i]));
     if (!pvKl.length && d.pvs && d.pvs.length) pvKl.push("alle Eingänge ohne Leistung");
-    var html = '<div class="sd-kopf"><span class="sd-name">Balkonkraftwerk</span><span class="sd-alter">Werte ' + alterText(d) + '</span></div>' +
+    var html = '<div class="sd-kopf"><span class="sd-name">Balkonkraftwerk · Heute</span><span class="sd-alter">Werte ' + alterText(d) + '</span></div>' + (t ? teslaE(d, t) :
       '<div class="sd-oben"><div class="sd-box sd-fluss-box"><div class="sd-titel">Energiefluss</div>' + fluss(d) + "</div>" +
       '<div class="sd-rechts">' +
         '<div class="sd-box sd-akku"><div class="sd-titel">Akku</div><div class="sd-akku-zeile"><div class="sd-akku-gross">' + (d.soc == null ? "–" : d.soc + "<small> %</small>") + "</div>" +
@@ -1350,7 +1389,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
           kachel("Grundlast", watt(d.grundlast), "eingestellte Abgabe ans Haus", "") +
         "</div>" +
       "</div></div>" +
-      (t ? tagUnten(t) : alt_unten(d));
+      alt_unten(d));
     var ger = [];
     for (i = 0; i < (d.geraete || []).length; i++) ger.push('<span class="' + (d.geraete[i].an ? "sd-an" : "sd-aus") + '">●</span> ' + esc(d.geraete[i].name) + (d.geraete[i].an ? "" : " (offline)"));
     if (t && d.erzeugt != null) ger.push("Gesamt " + tausend(d.erzeugt, 0) + " kWh erzeugt, " + (d.gespart != null ? tausend(d.gespart, 2) + " " + esc(d.waehrung || "€") + " gespart" : ""));
@@ -1397,9 +1436,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     }
   }
   var stil = document.createElement("style");
-  stil.innerHTML = "#solar { float: right; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; background: rgba(255,255,255,.07); border-radius: 16px; padding: 7px 14px 7px 10px; margin: -2px 12px 0 0; line-height: 1.2; color: #fff; cursor: pointer; }" +
+  stil.innerHTML = "#solar { float: right; box-sizing: border-box; min-width: 150px; -webkit-justify-content: center; justify-content: center; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; background: rgba(255,255,255,.07); border-radius: 16px; padding: 7px 14px 7px 10px; margin: -2px 12px 0 0; line-height: 1.2; color: #fff; cursor: pointer; }" +
     "#solar > svg { margin-right: 10px; -webkit-flex-shrink: 0; flex-shrink: 0; }" +
-    "#solar .so-gross { font-size: 24px; font-weight: 600; white-space: nowrap; }" +
+    "#solar > svg { width: 46px; height: 46px; } #solar .so-gross { font-size: 28px; font-weight: 600; white-space: nowrap; }" +
     "#solar .so-akku { font-size: 18px; font-weight: 600; margin-left: 10px; color: #dfe6f2; }" +
     "#solar .so-akku svg { vertical-align: -2px; margin-right: 5px; }" +
     "#solar .so-klein { font-size: 14px; color: #b9c4d6; white-space: nowrap; }" +
@@ -1436,6 +1475,12 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     ".sd-b-zeile { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: baseline; align-items: baseline; padding: 7px 0; border-top: 1px solid rgba(255,255,255,.06); font-size: 16px; color: #b9c4d6; }" +
     ".sd-b-zeile:nth-child(2) { border-top: 0; } .sd-b-zeile b { font-size: 22px; color: #fff; font-weight: 600; } .sd-b-zeile small { font-size: 13px; color: #8f9bb0; font-weight: 500; }" +
     ".sd-b-zeile.sd-klein { padding: 4px 0 4px 16px; font-size: 14px; } .sd-b-zeile.sd-klein b { font-size: 17px; } .sd-punkt { display: inline-block; width: 9px; height: 9px; border-radius: 5px; margin-right: 7px; }" +
+    ".se-gross { font-size: 64px; font-weight: 200; line-height: 1; margin: 2px 2px 14px; letter-spacing: -1px; } .se-gross span { font-size: 26px; color: #8f9bb0; font-weight: 300; letter-spacing: 0; }" +
+    ".se-werte { display: -webkit-flex; display: flex; margin: 0 2px 14px; } .se-wert { margin-right: 40px; } .se-wt { font-size: 14px; color: #a8b3c5; } .se-wt i { display: inline-block; width: 10px; height: 10px; border-radius: 5px; margin-right: 6px; }" +
+    ".se-wz { font-size: 30px; font-weight: 300; margin-top: 2px; } .se-wz small { font-size: 15px; color: #8f9bb0; }" +
+    ".se-kurve { padding: 10px 10px 4px; margin-bottom: 12px; } .se-svg { display: block; }" +
+    ".se-lives { display: -webkit-flex; display: flex; margin: 0 -6px 10px; } .se-live { -webkit-flex: 1; flex: 1; margin: 0 6px; background: #1b2433; border-radius: 14px; border-top: 3px solid; padding: 9px 14px; }" +
+    ".se-lt { font-size: 13px; color: #a8b3c5; } .se-lw { font-size: 24px; margin-top: 2px; }" +
     ".sd-fuss { font-size: 12px; color: #8f9bb0; padding: 0 4px; } .sd-an { color: #30d158; } .sd-aus { color: #ff5d6c; }";
   document.head.appendChild(stil);
   start();
