@@ -521,7 +521,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   .wd-unten .wd-tage-box { -webkit-flex: 1.25; flex: 1.25; min-width: 0; }
   .wd-radar-box { -webkit-flex: 1; flex: 1; margin-left: 12px; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; min-width: 0; }
   #wd-radar { -webkit-flex: 1; flex: 1; position: relative; overflow: hidden; border-radius: 10px; background: #0e131b; min-height: 220px; }
-  #wd-radar .wd-radar-kachel { -webkit-filter: invert(1) hue-rotate(180deg) brightness(.75) contrast(.9) saturate(.4); filter: invert(1) hue-rotate(180deg) brightness(.75) contrast(.9) saturate(.4); } /* helle OSM-Karte dunkel einfärben */
+  #wd-radar .wd-radar-kachel.osm { -webkit-filter: invert(1) hue-rotate(180deg) brightness(.6) contrast(.8) saturate(.3); filter: invert(1) hue-rotate(180deg) brightness(.6) contrast(.8) saturate(.3); } /* Ersatzkarte, falls Esri ausfällt */
+  #wd-radar .wd-radar-ort { position: absolute; -webkit-transform: translate(-50%,-50%); transform: translate(-50%,-50%); font-size: 11px; font-weight: 600; color: rgba(225,232,242,.8); letter-spacing: .2px; white-space: nowrap; text-shadow: 0 0 3px #0e131b, 0 0 3px #0e131b; pointer-events: none; }
   #wd-radar .wd-radar-bild { position: absolute; left: 0; top: 0; }
   #wd-radar .wd-radar-haus { position: absolute; width: 8px; height: 8px; border: 2px solid #fff; border-radius: 50%; background: #ff5b4a; box-shadow: 0 0 0 2px rgba(0,0,0,.4); }
   #wd-radar .wd-radar-zeit { position: absolute; left: 8px; top: 8px; font-size: 14px; font-weight: 600; color: #fff; background: rgba(27,36,51,.88); border-radius: 8px; padding: 3px 9px; font-variant-numeric: tabular-nums; }
@@ -664,6 +665,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
    Läuft nur, solange die Detailansicht offen ist. ES5, per setInterval (Keyframes laufen auf dem iPad nicht). */
 (function () {
   var LAT = 48.066, LON = 11.616, ZOOM = 11;
+  var ORTE = [["Giesing", 48.112, 11.588], ["Neuperlach", 48.100, 11.648], ["Neubiberg", 48.077, 11.661], ["Ottobrunn", 48.060, 11.672], ["Taufkirchen", 48.047, 11.617], ["Oberhaching", 48.021, 11.588], ["Grünwald", 48.040, 11.525], ["Pullach", 48.060, 11.524]];
   var URL_R = "https://api.brightsky.dev/radar?lat=" + LAT + "&lon=" + LON + "&distance=16000&format=plain";
   var statusText = "Radar wird geladen …", daten = null, geladen = 0, bild = 0, timer = null, el = null, pause = 0, laedt = false;
   // Farbskala in mm/h (Wert × 0,12, weil precipitation_5 = 0,01 mm je 5 Min)
@@ -676,13 +678,18 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   function zwei(n) { return (n < 10 ? "0" : "") + n; }
   function aufbauen() { // Karte aus Kacheln + Leinwand fürs Radar + Haus-Markierung
     var b = el.offsetWidth, h = el.offsetHeight; if (!b || !h) return false;
-    var m = px(LON, LAT), x0 = m.x - b / 2, y0 = m.y - h / 2, html = "";
+    var m = px(LON, LAT), x0 = m.x - b / 2, y0 = m.y - h / 2, html = "", orte = "";
     for (var tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + b) / 256); tx++)
       for (var ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + h) / 256); ty++)
-        html += '<img class="wd-radar-kachel" src="https://tile.openstreetmap.org/' + ZOOM + "/" + tx + "/" + ty + '.png" style="position:absolute;left:' + Math.round(tx * 256 - x0) + "px;top:" + Math.round(ty * 256 - y0) + 'px;width:256px;height:256px" alt="" onerror="this.style.display=\'none\'">';
+        html += '<img class="wd-radar-kachel" src="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/' + ZOOM + "/" + ty + "/" + tx + '" data-osm="https://tile.openstreetmap.org/' + ZOOM + "/" + tx + "/" + ty + '.png" style="position:absolute;left:' + Math.round(tx * 256 - x0) + "px;top:" + Math.round(ty * 256 - y0) + 'px;width:256px;height:256px" alt="" onerror="if(this.getAttribute(\'data-osm\')){this.src=this.getAttribute(\'data-osm\');this.removeAttribute(\'data-osm\');this.className+=\' osm\'}else{this.style.display=\'none\'}">';
+    for (var o = 0; o < ORTE.length; o++) { // eigene, ruhige Ortsnamen statt der Kartenbeschriftung
+      var q = px(ORTE[o][2], ORTE[o][1]), lx = Math.round(q.x - x0), ly = Math.round(q.y - y0);
+      if (lx > 20 && lx < b - 20 && ly > 30 && ly < h - 20) orte += '<div class="wd-radar-ort" style="left:' + lx + "px;top:" + ly + 'px">' + ORTE[o][0] + "</div>";
+    }
     html += '<canvas class="wd-radar-bild" width="' + b + '" height="' + h + '"></canvas>' +
+      orte +
       '<div class="wd-radar-haus" style="left:' + Math.round(b / 2 - 6) + "px;top:" + Math.round(h / 2 - 6) + 'px"></div>' +
-      '<div class="wd-radar-zeit"></div><div class="wd-radar-status">' + statusText + '</div><div class="wd-radar-hinweis">© OpenStreetMap-Mitwirkende · Radar: DWD</div>';
+      '<div class="wd-radar-zeit"></div><div class="wd-radar-status">' + statusText + '</div><div class="wd-radar-hinweis">Karte: Esri · Radar: DWD</div>';
     el.innerHTML = html;
     el._x0 = x0; el._y0 = y0;
     return true;
