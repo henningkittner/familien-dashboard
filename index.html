@@ -1194,10 +1194,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var netz = d.einspeisung > 0 ? '<span class="so-ein">↑ ' + watt(d.einspeisung) + "</span> Netz"
       : d.bezug != null ? '<span class="so-bez">↓ ' + watt(d.bezug) + "</span> Netz" : "";
     el.className = alt ? "alt" : "";
-    el.innerHTML = SONNE +
-      '<div><div class="so-gross">' + watt(d.pv) + '<span class="so-akku">' + akkuSvg(d.soc) + (d.soc == null ? "–" : d.soc + " %") + "</span></div>" +
-      '<div class="so-klein">Haus ' + watt(d.haus) + (netz ? " · " + netz : "") + "</div>" +
-      (d.fehler || alt ? '<div class="so-klein so-stand">' + (d.fehler ? "Anker: " + esc(d.fehler) : "Stand " + hhmm(d.zeit)) + "</div>" : "") + "</div>";
+    el.innerHTML = SONNE + '<div><div class="so-gross">Solar</div></div>';
     detail();
   }
 
