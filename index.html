@@ -1140,6 +1140,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       geraete: geraete,
       fehler: j && j.code ? (j.msg || "Fehler " + j.code) : null,
       tag: tageswerte(paket),
+      zr: zeitraeume(paket),
       tagInfo: !paket || !paket.scen ? "Tageswerte: im Paket fehlt \"scen\" (alter Kurzbefehl?)" :
         !paket.haus || !paket.solar ? "Tageswerte: haus/solar fehlen" :
         paket.haus.code || paket.solar.code ? "Tageswerte: Anker " + (paket.haus.code ? "haus " + paket.haus.code + " " + (paket.haus.msg || "") : "") + (paket.solar.code ? " solar " + paket.solar.code + " " + (paket.solar.msg || "") : "") : ""
@@ -1157,6 +1158,34 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       erzeugt: zahl(so.solar_total), inAkku: zahl(so.solar_to_battery_total), insHaus: zahl(so.solar_to_home_total), insNetz: zahl(so.solar_to_grid_total),
       kHaus: kurve(p.haus), kSolar: kurve(p.solar)
     };
+  }
+  // Zeiträume (Woche, Monat, Jahr) aus der Wiederholung im Kurzbefehl: paket.zr = [Antworten von energy_analysis]
+  function zeitraeume(p) {
+    if (!p || !p.zr || !p.zr.length) return null;
+    var z = { woche: {}, monat: {}, jahre: {} }, i;
+    for (i = 0; i < p.zr.length; i++) {
+      var r = p.zr[i]; if (!r || r.code || !r.data) continue;
+      var d = r.data, pw = d.power || [], t0 = pw[0] && pw[0].time || "", reihe = [];
+      for (var k = 0; k < pw.length; k++) reihe.push([pw[k].time, zahl(pw[k].value) || 0]);
+      var istSolar = d.solar_total != null && d.solar_total !== "" && (d.home_usage_total == null || d.home_usage_total === "");
+      var w = istSolar ? { erzeugt: zahl(d.solar_total), inAkku: zahl(d.solar_to_battery_total), insHaus: zahl(d.solar_to_home_total), insNetz: zahl(d.solar_to_grid_total), reihe: reihe }
+        : { verbrauch: zahl(d.home_usage_total), ausNetz: zahl(d.grid_to_home_total), ausAkku: zahl(d.battery_to_home_total), ausSolar: zahl(d.solar_to_home_total), reihe: reihe };
+      var ziel = t0.length === 7 ? (z.jahre[t0.slice(0, 4)] = z.jahre[t0.slice(0, 4)] || {}) : pw.length <= 8 ? z.woche : z.monat;
+      ziel[istSolar ? "solar" : "haus"] = w;
+    }
+    return z;
+  }
+  var JAHRE = "solar_jahre_v1";
+  function merkeJahre(z) {
+    if (!z) return;
+    var alt = {}; try { alt = JSON.parse(lies(JAHRE)) || {}; } catch (e) {}
+    for (var j in z.jahre) if (z.jahre[j].haus && z.jahre[j].solar) alt[j] = z.jahre[j];
+    schreib(JAHRE, JSON.stringify(alt));
+  }
+  function alleJahre(d) {
+    var a = {}, j; try { a = JSON.parse(lies(JAHRE)) || {}; } catch (e) {}
+    if (d.zr) for (j in d.zr.jahre) if (d.zr.jahre[j].haus && d.zr.jahre[j].solar) a[j] = d.zr.jahre[j];
+    return a;
   }
   var letzte = null; // falls der Speicher nicht geht, wenigstens bis zum Neuladen zeigen
   function laden() { try { var d = JSON.parse(lies(SPEICHER)); if (d) return d; } catch (e) {} return letzte; }
@@ -1349,8 +1378,88 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var netzTxt = d.einspeisung > 0 ? "↑ " + watt(d.einspeisung) : d.bezug != null ? "↓ " + watt(d.bezug) : "–";
     return '<div class="se-gross">' + (autark == null ? "–" : autark + " %") + '<span> selbst versorgt</span></div>' +
       '<div class="se-werte">' + wert("Sonne erzeugt", t.erzeugt, FARBE.pv) + wert("Haus verbraucht", t.verbrauch, FARBE.haus) + wert("Akku geliefert", t.ausAkku, FARBE.akku) + wert("Netz geliefert", t.ausNetz, FARBE.netz) + "</div>" +
-      '<div class="sd-box se-kurve">' + flaecheE(t) + "</div>" +
-      '<div class="se-lives">' + live("Solar jetzt", watt(d.pv), FARBE.pv) + live("Haus jetzt", watt(d.haus), FARBE.haus) + live("Akku", akkuTxt, FARBE.akku) + live("Netz jetzt", netzTxt, FARBE.netz) + "</div>";
+      '<div class="sd-box se-kurve">' + flaecheE(t) + "</div>" + liveE(d);
+  }
+  function liveE(d) {
+    function live(text, w, farbe) { return '<div class="se-live" style="border-top-color:' + farbe + '"><div class="se-lt">' + text + '</div><div class="se-lw">' + w + "</div></div>"; }
+    var akkuTxt = (d.soc == null ? "–" : d.soc + " %") + (d.laden > 0 ? " · lädt" : d.entladen > 0 ? " · entlädt" : "");
+    var netzTxt = d.einspeisung > 0 ? "↑ " + watt(d.einspeisung) : d.bezug != null ? "↓ " + watt(d.bezug) : "–";
+    return '<div class="se-lives">' + live("Solar jetzt", watt(d.pv), FARBE.pv) + live("Haus jetzt", watt(d.haus), FARBE.haus) + live("Akku", akkuTxt, FARBE.akku) + live("Netz jetzt", netzTxt, FARBE.netz) + "</div>";
+  }
+  /* ---------- Zeiträume: Woche, Monat, Jahr, Gesamt ---------- */
+  var ANSICHT = "heute", TABS = [["heute", "Heute"], ["woche", "Woche"], ["monat", "Monat"], ["jahr", "Jahr"], ["gesamt", "Gesamt"]];
+  var WTK = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"], MOK = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+  function kz(n) { return n == null ? "–" : n >= 1000 ? tausend(n, 0) : komma(n, n < 10 ? 2 : n < 100 ? 1 : 0); }
+  function plus(a, b, f) { return (a[f] || 0) + (b[f] || 0); }
+  function periode(d, art) {
+    var z = d.zr || {}, P = null, i, b = [];
+    function paar(h, so) { // Tages- bzw. Monatsbalken aus beiden Reihen
+      var r = [], k, hm = {}; for (k = 0; k < h.reihe.length; k++) hm[h.reihe[k][0]] = h.reihe[k][1];
+      for (k = 0; k < so.reihe.length; k++) r.push([so.reihe[k][0], so.reihe[k][1], hm[so.reihe[k][0]] || 0]);
+      return r;
+    }
+    if (art === "woche" || art === "monat") {
+      var x = z[art]; if (!x || !x.haus || !x.solar) return null;
+      b = paar(x.haus, x.solar);
+      for (i = 0; i < b.length; i++) { var dt = new Date(b[i][0] + "T12:00:00"); b[i][0] = art === "woche" ? WTK[dt.getDay()] : String(dt.getDate()); }
+      P = { h: x.haus, s: x.solar };
+    } else if (art === "jahr") {
+      var y = alleJahre(d)[String(new Date().getFullYear())]; if (!y) return null;
+      b = paar(y.haus, y.solar);
+      for (i = 0; i < b.length; i++) b[i][0] = MOK[parseInt(b[i][0].slice(5), 10) - 1] || b[i][0];
+      P = { h: y.haus, s: y.solar };
+    } else if (art === "gesamt") {
+      var J = alleJahre(d), jahre = [], j, h = {}, so = {}, f;
+      for (j in J) jahre.push(j);
+      if (!jahre.length) return null;
+      jahre.sort();
+      var bis = new Date().getFullYear() + "-" + zwei(new Date().getMonth() + 1);
+      for (i = 0; i < jahre.length; i++) {
+        var Y = J[jahre[i]];
+        for (f in Y.haus) if (f !== "reihe") h[f] = plus(h, Y.haus, f);
+        for (f in Y.solar) if (f !== "reihe") so[f] = plus(so, Y.solar, f);
+        var pr = paar(Y.haus, Y.solar);
+        for (var k = 0; k < pr.length; k++) if (pr[k][0] <= bis && (b.length || pr[k][1] > 0 || pr[k][2] > 0)) b.push([(pr[k][0].slice(5) === "01" || !b.length ? MOK[parseInt(pr[k][0].slice(5), 10) - 1] + " " + pr[k][0].slice(2, 4) : MOK[parseInt(pr[k][0].slice(5), 10) - 1]), pr[k][1], pr[k][2]]);
+      }
+      P = { h: h, s: so };
+    }
+    if (!P) return null;
+    return { erzeugt: P.s.erzeugt, verbrauch: P.h.verbrauch, ausSolar: P.h.ausSolar, ausAkku: P.h.ausAkku, ausNetz: P.h.ausNetz, inAkku: P.s.inAkku, insNetz: P.s.insNetz, balken: b };
+  }
+  function balkenE(b, art) {
+    var W = 1000, Hh = 300, L = 52, R = 8, O = 14, U = 24, n = b.length, max = 0.5, i;
+    for (i = 0; i < n; i++) max = Math.max(max, b[i][1], b[i][2]);
+    var stufe = [1, 2, 5, 10, 20, 50, 100, 200, 500][0], st = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500];
+    for (i = 0; i < st.length; i++) if (max / st[i] <= 5) { stufe = st[i]; break; }
+    max = Math.ceil(max / stufe) * stufe;
+    var breit = (W - L - R) / Math.max(n, 1), bw = Math.min(26, breit * 0.36);
+    function y(v) { return O + (1 - v / max) * (Hh - O - U); }
+    var s = '<svg viewBox="0 0 ' + W + " " + Hh + '" width="100%" class="se-svg">';
+    for (var v = stufe; v <= max + 1e-9; v += stufe) s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#26303f"/><text x="' + (L - 8) + '" y="' + (y(v) + 4) + '" text-anchor="end" class="sd-achse">' + (stufe >= 1 ? tausend(v, 0) : komma(v, 1)) + "</text>";
+    s += '<text x="' + (L - 8) + '" y="' + (y(0) + 4) + '" text-anchor="end" class="sd-achse">kWh</text>';
+    var jede = n > 20 ? (art === "monat" ? 5 : 3) : 1;
+    for (i = 0; i < n; i++) {
+      var mx = L + breit * (i + 0.5);
+      s += '<rect x="' + (mx - bw - 1).toFixed(1) + '" y="' + y(b[i][1]).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + (y(0) - y(b[i][1])).toFixed(1) + '" rx="3" fill="' + FARBE.pv + '"/>';
+      s += '<rect x="' + (mx + 1).toFixed(1) + '" y="' + y(b[i][2]).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + (y(0) - y(b[i][2])).toFixed(1) + '" rx="3" fill="' + FARBE.haus + '" opacity=".85"/>';
+      if (i % jede === 0 || art === "monat" && i === n - 1) s += '<text x="' + mx.toFixed(1) + '" y="' + (Hh - 5) + '" text-anchor="middle" class="sd-achse">' + esc(b[i][0]) + "</text>";
+    }
+    s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(0) + '" y2="' + y(0) + '" stroke="#3a4557"/>';
+    return s + "</svg>";
+  }
+  function zeitraumE(d, art) {
+    var P = periode(d, art);
+    if (!P) return '<div class="sd-box sd-leer" style="margin-bottom:12px">Für diesen Zeitraum sind noch keine Daten da.<br>Dafür bekommt der Kurzbefehl „Solar“ noch einen Zusatz (Anleitung Solar, Teil „Zeiträume“).</div>';
+    var autark = P.verbrauch > 0 ? Math.max(0, Math.min(100, Math.round((P.verbrauch - (P.ausNetz || 0)) / P.verbrauch * 100))) : null;
+    function wert(text, n, farbe) { return '<div class="se-wert"><div class="se-wt"><i style="background:' + farbe + '"></i>' + text + '</div><div class="se-wz">' + kz(n) + "<small> kWh</small></div></div>"; }
+    return '<div class="se-gross">' + (autark == null ? "–" : autark + " %") + '<span> selbst versorgt</span></div>' +
+      '<div class="se-werte">' + wert("Sonne erzeugt", P.erzeugt, FARBE.pv) + wert("Haus verbraucht", P.verbrauch, FARBE.haus) + wert("Akku geliefert", P.ausAkku, FARBE.akku) + wert("Netz geliefert", P.ausNetz, FARBE.netz) + "</div>" +
+      '<div class="sd-box se-kurve"><div class="se-bleg"><span><i style="background:' + FARBE.pv + '"></i>erzeugt</span><span><i style="background:' + FARBE.haus + '"></i>verbraucht</span></div>' + balkenE(P.balken, art) + "</div>";
+  }
+  function tabs() {
+    var h = '<div class="sd-tabs">';
+    for (var i = 0; i < TABS.length; i++) h += '<span data-a="' + TABS[i][0] + '"' + (ANSICHT === TABS[i][0] ? ' class="an"' : "") + ">" + TABS[i][1] + "</span>";
+    return h + "</div>";
   }
   function alterText(d) {
     var min = Math.round((Date.now() - d.zeit) / 60000);
@@ -1365,7 +1474,11 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       fuss.parentNode.insertBefore(el, fuss);
       el.addEventListener("click", function (e) {
         var t = e.target;
-        while (t && t !== el) { if (t.id === "sd-neu") { e.stopPropagation(); aktualisieren(); return; } t = t.parentNode; }
+        while (t && t !== el) {
+          var a = t.getAttribute && t.getAttribute("data-a");
+          if (a) { e.stopPropagation(); ANSICHT = a; detail(); return; }
+          t = t.parentNode;
+        }
       }, false);
     }
     var d = laden();
@@ -1376,7 +1489,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var rest = d.soc != null && d.kwh ? d.kwh * d.soc / 100 : null, i, pvKl = [];
     for (i = 0; i < (d.pvs || []).length; i++) if (d.pvs[i] > 0) pvKl.push("PV" + (i + 1) + " " + watt(d.pvs[i]));
     if (!pvKl.length && d.pvs && d.pvs.length) pvKl.push("alle Eingänge ohne Leistung");
-    var html = '<div class="sd-kopf"><span class="sd-name">Balkonkraftwerk · Heute</span><span class="sd-alter">Werte ' + alterText(d) + '</span></div>' + (t ? teslaE(d, t) :
+    var html = '<div class="sd-kopf"><span class="sd-name">Balkonkraftwerk</span><span class="sd-alter">Werte ' + alterText(d) + '</span>' + tabs() + '</div>' + (ANSICHT !== "heute" ? zeitraumE(d, ANSICHT) + liveE(d) : t ? teslaE(d, t) :
       '<div class="sd-oben"><div class="sd-box sd-fluss-box"><div class="sd-titel">Energiefluss</div>' + fluss(d) + "</div>" +
       '<div class="sd-rechts">' +
         '<div class="sd-box sd-akku"><div class="sd-titel">Akku</div><div class="sd-akku-zeile"><div class="sd-akku-gross">' + (d.soc == null ? "–" : d.soc + "<small> %</small>") + "</div>" +
@@ -1411,7 +1524,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   var versatz = 0, warOffen = false;
   setInterval(function () {
     var offen = /\bfokus-solar\b/.test(document.body.className);
-    if (offen && !warOffen) detail(); // Alter-Anzeige auffrischen
+    if (offen && !warOffen) { ANSICHT = "heute"; detail(); } // Alter-Anzeige auffrischen
     warOffen = offen;
     if (!offen) return;
     versatz = (versatz - 1.5) % 18;
@@ -1425,6 +1538,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       neu = ausHash();
       if (neu) {
         if (neu.fehler) { var a = laden(); if (a) { a.fehler = neu.fehler; neu = a; } }
+        if (!neu.zr) { var vorher = laden(); if (vorher && vorher.zr) neu.zr = vorher.zr; }
+        merkeJahre(neu.zr);
         speichern(neu); merkeVerlauf(neu);
       }
     } catch (e) { if (/[#&]pv=/.test(location.hash)) speichern({ zeit: Date.now(), fehler: "Daten unlesbar (" + location.hash.length + " Zeichen): " + e.message }); }
@@ -1482,6 +1597,9 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     ".se-kurve { padding: 10px 10px 4px; margin-bottom: 12px; } .se-svg { display: block; }" +
     ".se-lives { display: -webkit-flex; display: flex; margin: 0 -6px 10px; } .se-live { -webkit-flex: 1; flex: 1; margin: 0 6px; background: #1b2433; border-radius: 14px; border-top: 3px solid; padding: 9px 14px; }" +
     ".se-lt { font-size: 13px; color: #a8b3c5; } .se-lw { font-size: 24px; margin-top: 2px; }" +
+    ".sd-tabs { display: -webkit-flex; display: flex; background: rgba(255,255,255,.07); border-radius: 12px; padding: 3px; } .sd-tabs span { font-size: 16px; font-weight: 600; color: #b9c4d6; padding: 7px 14px; border-radius: 9px; cursor: pointer; }" +
+    ".sd-tabs span.an { background: #2c3a50; color: #fff; }" +
+    ".se-bleg { font-size: 13px; color: #b9c4d6; text-align: right; padding: 0 6px 2px; } .se-bleg span { margin-left: 14px; } .se-bleg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; }" +
     ".sd-fuss { font-size: 12px; color: #8f9bb0; padding: 0 4px; } .sd-an { color: #30d158; } .sd-aus { color: #ff5d6c; }";
   document.head.appendChild(stil);
   start();
