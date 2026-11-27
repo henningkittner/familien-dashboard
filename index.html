@@ -556,6 +556,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   kopf.insertBefore(knopf, kopf.firstChild);
   function setze(art) {
     body.className = body.className.replace(/\s*fokus-\w+/g, "") + (art ? " fokus-" + art : "");
+    try { localStorage.setItem("fokus_ansicht_v1", (art || "") + "|" + Date.now()); } catch (e) {}
     var z = art === "abf" ? ZEILEN_FOKUS : ZEILEN_NORMAL;
     if (CONFIG.maxZeilen !== z) { CONFIG.maxZeilen = z; aktualisiere(); }
     window.scrollTo(0, 0);
@@ -581,6 +582,12 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   document.addEventListener("click", function () { letzte = Date.now(); }, true);
   setInterval(function () { if (aktuell() && Date.now() - letzte > 120000) setze(null); }, 5000);
   window.Fokus = setze;
+  // Detailansicht nach Neuladen wiederherstellen, wenn sie vor höchstens 2 Min offen war
+  try {
+    var gm = (localStorage.getItem("fokus_ansicht_v1") || "").split("|");
+    if (gm[0] && Date.now() - (parseInt(gm[1], 10) || 0) < 120000)
+      setTimeout(function () { var r = document.getElementById("ruhe"); if (!aktuell() && !(r && r.style.display === "block")) setze(gm[0]); }, 400);
+  } catch (e) {}
 })();
 
 </script>
@@ -1754,6 +1761,14 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   var ruhe = document.getElementById("ruhe"), block = document.getElementById("aod");
   var aus = /[?&]ohneruhe=1/.test(location.search);
   var letzte = /[?&]nacht=1/.test(location.search) ? 0 : Date.now(), letzteMinute = -1;
+  // Ansicht über Neuladen hinweg behalten (Automationen öffnen das Dashboard alle 30 Min neu):
+  // War vor dem Neuladen die Uhr-Ansicht an (vor höchstens 45 Min), startet die Seite gleich wieder darin.
+  var ANSICHT = "ruhe_ansicht_v1";
+  function merkUhr(an) { try { localStorage.setItem(ANSICHT, (an ? "uhr" : "") + "|" + Date.now()); } catch (e) {} }
+  try {
+    var gm = (localStorage.getItem(ANSICHT) || "").split("|");
+    if (gm[0] === "uhr" && Date.now() - (parseInt(gm[1], 10) || 0) < 45 * 60000) letzte = 0;
+  } catch (e) {}
   function zwei(n) { return (n < 10 ? "0" : "") + n; }
   function txt(el) { return el ? (el.textContent || "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "") : ""; }
   function himmelArt(c) {
@@ -1832,9 +1847,11 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     if (soll && !ist) {
       if (window.Fokus && /fokus-/.test(document.body.className)) window.Fokus(null);
       ruhe.style.display = "block"; window.scrollTo(0, 0);
+      merkUhr(true);
       wolkenLaufen(true); schneeLaufen(true);
     } else if (!soll && ist) {
       ruhe.style.display = "none"; wolkenLaufen(false); schneeLaufen(false);
+      merkUhr(false);
       if (window.Einpassen) window.Einpassen();
     }
   }
