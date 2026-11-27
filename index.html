@@ -1499,7 +1499,6 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
           kachel("Solar", watt(d.pv), pvKl.join(" · "), FARBE.pv) +
           kachel("Haus", watt(d.haus), eigen != null ? eigen + " % von der Solarbank" : "", FARBE.haus) +
           kachel(d.einspeisung > 0 ? "Einspeisung" : "Netzbezug", watt(d.einspeisung > 0 ? d.einspeisung : d.bezug), d.einspeisung > 0 ? "ins Netz" : "aus dem Netz", FARBE.netz) +
-          kachel("Grundlast", watt(d.grundlast), "eingestellte Abgabe ans Haus", "") +
         "</div>" +
       "</div></div>" +
       alt_unten(d));
