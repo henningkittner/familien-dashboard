@@ -1551,7 +1551,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     try {
       var kennung = location.hash.length + ":" + location.hash.slice(-40);
       neu = ausHash();
-      if (neu && lies(KENNUNG) === kennung && laden()) neu = null; // derselbe Link wurde nur neu geladen (z. B. Safari-Tab)
+      var alt = laden(); if (neu && lies(KENNUNG) === kennung && alt && alt.zrInfo) neu = null; // derselbe Link wurde nur neu geladen (z. B. Safari-Tab)
       if (neu) {
         schreib(KENNUNG, kennung);
         if (neu.fehler) { var a = laden(); if (a) { a.fehler = neu.fehler; neu = a; } }
