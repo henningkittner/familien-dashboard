@@ -1149,6 +1149,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       fehler: j && j.code ? (j.msg || "Fehler " + j.code) : null,
       tag: tageswerte(paket),
       zr: zeitraeume(paket),
+      zrInfo: zrInfo(paket),
       tagInfo: !paket || !paket.scen ? "Tageswerte: im Paket fehlt \"scen\" (alter Kurzbefehl?)" :
         !paket.haus || !paket.solar ? "Tageswerte: haus/solar fehlen" :
         paket.haus.code || paket.solar.code ? "Tageswerte: Anker " + (paket.haus.code ? "haus " + paket.haus.code + " " + (paket.haus.msg || "") : "") + (paket.solar.code ? " solar " + paket.solar.code + " " + (paket.solar.msg || "") : "") : ""
@@ -1182,6 +1183,12 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       ziel[istSolar ? "solar" : "haus"] = w;
     }
     return z;
+  }
+  function zrInfo(p) {
+    if (!p || !p.zr) return "Zeiträume: fehlen im Paket (Z9/Zeitraeume/Z10 im Gesamttext?)";
+    var ok = 0, f = [], i;
+    for (i = 0; i < p.zr.length; i++) { var r = p.zr[i]; if (r && !r.code && r.data) ok++; else f.push(r ? (r.code + " " + (r.msg || "")) : "leer"); }
+    return "Zeiträume: " + ok + " von " + p.zr.length + " Antworten ok" + (f.length ? ", Fehler: " + f[0] : "");
   }
   var JAHRE = "solar_jahre_v1";
   function merkeJahre(z) {
@@ -1457,7 +1464,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   }
   function zeitraumE(d, art) {
     var P = periode(d, art);
-    if (!P) return '<div class="sd-box sd-leer" style="margin-bottom:12px">Für diesen Zeitraum sind noch keine Daten da.<br>Dafür bekommt der Kurzbefehl „Solar“ noch einen Zusatz (Anleitung Solar, Teil „Zeiträume“).</div>';
+    if (!P) return '<div class="sd-box sd-leer" style="margin-bottom:12px">Für diesen Zeitraum sind noch keine Daten da.<br>' + esc(d.zrInfo || "Zeiträume: noch nie empfangen") + "</div>";
     var autark = P.verbrauch > 0 ? Math.max(0, Math.min(100, Math.round((P.verbrauch - (P.ausNetz || 0)) / P.verbrauch * 100))) : null;
     function wert(text, n, farbe) { return '<div class="se-wert"><div class="se-wt"><i style="background:' + farbe + '"></i>' + text + '</div><div class="se-wz">' + kz(n) + "<small> kWh</small></div></div>"; }
     return '<div class="se-gross">' + (autark == null ? "–" : autark + " %") + '<span> selbst versorgt</span></div>' +
