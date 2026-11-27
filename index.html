@@ -1653,7 +1653,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 })();
 
 </script>
-<div id="ruhe" class="h-wolken"><div id="aod-himmel"><div class="hs-sonne"></div><div class="hs-sterne"></div><div class="hw hw1"></div><div class="hw hw2"></div><div class="hw hw3"></div><div class="hw hw4"></div><div class="hw hw5"></div><div class="hn hn1"></div><div class="hn hn2"></div><canvas id="aod-schnee"></canvas><div class="hs-blitz"></div></div><div id="aod"><div id="aod-zeit"></div><div id="aod-datum"></div><div id="aod-ort">Unterhaching</div><div id="aod-wtemp"></div><div id="aod-wtext"></div><div id="aod-whl"></div><div id="aod-hinweise"></div><div id="aod-entfall"></div></div></div>
+<div id="ruhe" class="h-wolken"><div id="aod-himmel"><div class="hs-sonne"></div><div class="hs-sterne"></div><div class="hw hw1"></div><div class="hw hw2"></div><div class="hw hw3"></div><div class="hw hw4"></div><div class="hw hw5"></div><div class="hn hn1"></div><div class="hn hn2"></div><canvas id="aod-schnee"></canvas><div class="hs-blitz"></div></div><div id="aod"><div id="aod-zeit"></div><div id="aod-datum"></div><div id="aod-ort">Unterhaching</div><div id="aod-wtemp"></div><div id="aod-wtext"></div><div id="aod-whl"></div><div id="aod-hinweise"></div><div id="aod-packen"></div><div id="aod-entfall"></div></div></div>
 <style>
   /* Uhr-Ansicht im Stil eines Wetter-App-Kopfs: dunkler, wetterabhängiger Himmel, gedimmt */
   #ruhe { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: #000; z-index: 1000; cursor: pointer; overflow: hidden; }
@@ -1716,6 +1716,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   #aod-hinweise .aod-warn-zeit { font-weight: 400; opacity: .85; }
   #aod-entfall { margin-top: 34px; font-size: 24px; font-weight: 500; line-height: 1.5; color: #ffb3ba; } /* nur Entfall, keine Vertretungen (Mina 25.11.) */
   #aod-entfall b { font-weight: 700; }
+  #aod-packen { margin-top: 34px; font-size: 28px; font-weight: 600; line-height: 1.5; color: #ffe08a; } /* Felix Sport/EG 06:30–07:05 (Mina 27.11.) */
+  #aod-packen + #aod-entfall { margin-top: 18px; }
   /* Schalter für die Steckdose im Schlafzimmer: startet den Kurzbefehl „Schlafzimmer“ (Mina 25.11.) */
   #aod-schalter { position: absolute; left: 50%; bottom: 5%; -webkit-transform: translateX(-50%); transform: translateX(-50%); padding: 16px 30px 16px 22px; border-radius: 40px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); color: #fff; opacity: .6; font-size: 24px; font-weight: 500; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
   #aod-schalter.gedrueckt { background: rgba(255,255,255,.35); opacity: 1; }
@@ -1773,6 +1775,13 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     }
     return html;
   }
+  function packen(d) { // Packhinweise (Sport/EG) nur von 06:30 bis 07:05 Uhr; ?packtest=1 zeigt sie immer
+    var m = d.getHours() * 60 + d.getMinutes();
+    if (!/[?&]packtest=1/.test(location.search) && (m < 6 * 60 + 30 || m >= 7 * 60 + 5)) return "";
+    var l = window.Vertretung && Vertretung.packHinweise ? Vertretung.packHinweise(d) : [], html = "";
+    for (var i = 0; i < l.length; i++) html += "<div>" + l[i] + "</div>";
+    return html;
+  }
   function abfahrten() {
     var html = "";
     for (var i = 0; i < 4; i++) {
@@ -1790,6 +1799,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     document.getElementById("aod-zeit").innerHTML = d.getHours() + ":" + zwei(d.getMinutes());
     wetter();
     var ef = entfall(), efEl = document.getElementById("aod-entfall"); if (efEl.innerHTML !== ef) efEl.innerHTML = ef;
+    var pk = packen(d), pkEl = document.getElementById("aod-packen"); if (pkEl && pkEl.innerHTML !== pk) pkEl.innerHTML = pk;
     // Abfahrten in der Uhr-Ansicht auf Minas Wunsch weggelassen (abfahrten() bleibt für später)
     if (d.getMinutes() !== letzteMinute) { // langsam wandern
       letzteMinute = d.getMinutes();
@@ -2016,6 +2026,14 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     Anna: { alle: ["Sm", "K", "Eth"] },
     Felix: { alle: ["Sw", "K", "Eth"], Di: ["IT"], Fr: ["EG"] }
   }; // so viele kommende Schulaufgaben pro Kind // feste Zeilenzahl pro Kind, damit sich das Layout nicht verschiebt
+  // Packhinweise für die Uhr-Ansicht: an Tagen mit diesem Fach (laut Stundenplan, nach SP_WEGLASSEN) diesen Satz zeigen.
+  // Fällt das Fach heute laut Vertretungsplan ganz aus, kein Hinweis. Zeitfenster steht in ruhe.js.
+  var PACKEN = {
+    Felix: [
+      { fach: /^(Sm|Sp|Spo|Sport)$/i, text: "Felix Sport: Schuhe einpacken" },
+      { fach: /^EG$/i, text: "Felix EG: Weckglas einpacken" }
+    ]
+  };
   var WT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
   function iso(d) {
@@ -2360,7 +2378,44 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     window.addEventListener("hashchange", function () { start(id); });
   }
 
-  window.Vertretung = { start: start, parsen: parsen };
+  function stdListe(s) { // "3" → [3], "3 - 4" → [3,4]
+    var m = String(s).match(/(\d+)(?:\D+(\d+))?/), aus = [];
+    if (!m) return aus;
+    for (var n = +m[1]; n <= +(m[2] || m[1]); n++) aus.push(n);
+    return aus;
+  }
+  function packHinweise(d) { // Sätze für heute, z. B. ["Felix Sport: Schuhe einpacken"]
+    var daten = laden(), aus = [];
+    if (!daten || !daten.kinder) return aus;
+    d = d || new Date();
+    var wt = WT[d.getDay()], heute = iso(d);
+    for (var i = 0; i < daten.kinder.length; i++) {
+      var k = daten.kinder[i], vorname = String(k.name).split(" ")[0], regeln = PACKEN[vorname], sp = k.stundenplan;
+      if (!regeln || !sp) continue;
+      var spalte = -1;
+      for (var t = 0; t < sp.tage.length; t++) if (sp.tage[t] === wt) spalte = t;
+      if (spalte < 0) continue;
+      var weg = {}; // heute entfallene Stunden
+      for (var g = 0; g < (k.tage || []).length; g++) if (k.tage[g].datum === heute) {
+        var ein = k.tage[g].eintraege;
+        for (var e = 0; e < ein.length; e++) if (ein[e].art === "entfall") { var l = stdListe(ein[e].stunde); for (var x = 0; x < l.length; x++) weg[l[x]] = 1; }
+      }
+      for (var r = 0; r < regeln.length; r++) {
+        var hat = false;
+        for (var s = 0; s < sp.stunden.length && !hat; s++) {
+          var z = sp.stunden[s].zellen[spalte] || [];
+          if (!z.length) continue;
+          var faecher = spFach(z[0], k.name, wt).split("/"), treffer = false;
+          for (var f = 0; f < faecher.length; f++) if (regeln[r].fach.test(faecher[f])) treffer = true;
+          if (treffer && !weg[parseInt(sp.stunden[s].nr, 10)]) hat = true;
+        }
+        if (hat) aus.push(regeln[r].text);
+      }
+    }
+    return aus;
+  }
+
+  window.Vertretung = { start: start, parsen: parsen, packHinweise: packHinweise };
 })();
 
 Vertretung.start("vertretung");
