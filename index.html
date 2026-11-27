@@ -1398,7 +1398,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     function live(text, w, farbe) { return '<div class="se-live" style="border-top-color:' + farbe + '"><div class="se-lt">' + text + '</div><div class="se-lw">' + w + "</div></div>"; }
     var akkuTxt = (d.soc == null ? "–" : d.soc + " %") + (d.laden > 0 ? " · lädt" : d.entladen > 0 ? " · entlädt" : "");
     var netzTxt = d.einspeisung > 0 ? "↑ " + watt(d.einspeisung) : d.bezug != null ? "↓ " + watt(d.bezug) : "–";
-    return '<div class="se-gross">' + (autark == null ? "–" : autark + " %") + '<span> selbst versorgt</span></div>' +
+    return '<div class="se-gross">' + (autark == null ? "–" : autark + " %") + '<span> selbst versorgt</span>' + zrText(d, "heute", t) + '</div>' +
       '<div class="se-werte">' + wert("Sonne erzeugt", t.erzeugt, FARBE.pv) + wert("Haus verbraucht", t.verbrauch, FARBE.haus) + wert("Akku geliefert", t.ausAkku, FARBE.akku) + wert("Netz geliefert", t.ausNetz, FARBE.netz) + "</div>" +
       '<div class="sd-box se-kurve">' + flaecheE(t) + "</div>" + liveE(d);
   }
@@ -1469,12 +1469,33 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(0) + '" y2="' + y(0) + '" stroke="#3a4557"/>';
     return s + "</svg>";
   }
+  // Welcher Zeitraum gerade gezeigt wird (Mina 28.11.): Tag, Woche, Monat, Jahr, Gesamt
+  var MOL = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+  var WTL = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  function iso(x) { return new Date(x + "T12:00:00"); }
+  function zrText(d, art, P) {
+    var txt = "", z = d.zr || {}, r, a, b;
+    try {
+      if (art === "heute") { a = iso(P && P.datum || heuteISO()); txt = WTL[a.getDay()] + ", " + a.getDate() + ". " + MOL[a.getMonth()]; }
+      else if (art === "woche" && z.woche && z.woche.solar && (r = z.woche.solar.reihe).length) {
+        a = iso(r[0][0]); b = iso(r[r.length - 1][0]);
+        txt = a.getDate() + "." + (a.getMonth() !== b.getMonth() ? " " + MOL[a.getMonth()] + " " : "") + "–" + b.getDate() + ". " + MOL[b.getMonth()];
+      } else if (art === "monat" && z.monat && z.monat.solar && (r = z.monat.solar.reihe).length) { a = iso(r[0][0]); txt = MOL[a.getMonth()] + " " + a.getFullYear(); }
+      else if (art === "jahr") txt = String(new Date().getFullYear());
+      else if (art === "gesamt" && P && P.balken && P.balken.length) {
+        var J = alleJahre(d), j, erst = null, k;
+        for (j in J) { r = J[j].solar && J[j].solar.reihe || []; for (k = 0; k < r.length; k++) if (r[k][1] > 0 && (!erst || r[k][0] < erst)) erst = r[k][0]; }
+        if (erst) txt = "seit " + MOL[parseInt(erst.slice(5, 7), 10) - 1] + " " + erst.slice(0, 4);
+      }
+    } catch (e) { txt = ""; }
+    return txt ? '<span class="se-zr"> · ' + esc(txt) + "</span>" : "";
+  }
   function zeitraumE(d, art) {
     var P = periode(d, art);
     if (!P) return '<div class="sd-box sd-leer" style="margin-bottom:12px">Für diesen Zeitraum sind noch keine Daten da.<br>' + esc(d.zrInfo || "Zeiträume: noch nie empfangen") + "</div>";
     var autark = P.verbrauch > 0 ? Math.max(0, Math.min(100, Math.round((P.verbrauch - (P.ausNetz || 0)) / P.verbrauch * 100))) : null;
     function wert(text, n, farbe) { return '<div class="se-wert"><div class="se-wt"><i style="background:' + farbe + '"></i>' + text + '</div><div class="se-wz">' + kz(n) + "<small> kWh</small></div></div>"; }
-    return '<div class="se-gross">' + (autark == null ? "–" : autark + " %") + '<span> selbst versorgt</span></div>' +
+    return '<div class="se-gross">' + (autark == null ? "–" : autark + " %") + '<span> selbst versorgt</span>' + zrText(d, art, P) + '</div>' +
       '<div class="se-werte">' + wert("Sonne erzeugt", P.erzeugt, FARBE.pv) + wert("Haus verbraucht", P.verbrauch, FARBE.haus) + wert("Akku geliefert", P.ausAkku, FARBE.akku) + wert("Netz geliefert", P.ausNetz, FARBE.netz) + "</div>" +
       '<div class="sd-box se-kurve"><div class="se-bleg"><span><i style="background:' + FARBE.pv + '"></i>erzeugt</span><span><i style="background:' + FARBE.haus + '"></i>verbraucht</span></div>' + balkenE(P.balken, art) + "</div>";
   }
@@ -1615,7 +1636,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     ".sd-b-zeile { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: baseline; align-items: baseline; padding: 7px 0; border-top: 1px solid rgba(255,255,255,.06); font-size: 16px; color: #b9c4d6; }" +
     ".sd-b-zeile:nth-child(2) { border-top: 0; } .sd-b-zeile b { font-size: 22px; color: #fff; font-weight: 600; } .sd-b-zeile small { font-size: 13px; color: #8f9bb0; font-weight: 500; }" +
     ".sd-b-zeile.sd-klein { padding: 4px 0 4px 16px; font-size: 14px; } .sd-b-zeile.sd-klein b { font-size: 17px; } .sd-punkt { display: inline-block; width: 9px; height: 9px; border-radius: 5px; margin-right: 7px; }" +
-    ".se-gross { font-size: 64px; font-weight: 200; line-height: 1; margin: 2px 2px 14px; letter-spacing: -1px; } .se-gross span { font-size: 26px; color: #8f9bb0; font-weight: 300; letter-spacing: 0; }" +
+    ".se-gross { font-size: 64px; font-weight: 200; line-height: 1; margin: 2px 2px 14px; letter-spacing: -1px; } .se-gross span { font-size: 26px; color: #8f9bb0; font-weight: 300; letter-spacing: 0; } .se-gross .se-zr { color: #dfe6f2; }" +
     ".se-werte { display: -webkit-flex; display: flex; margin: 0 2px 14px; } .se-wert { margin-right: 40px; } .se-wt { font-size: 14px; color: #a8b3c5; } .se-wt i { display: inline-block; width: 10px; height: 10px; border-radius: 5px; margin-right: 6px; }" +
     ".se-wz { font-size: 30px; font-weight: 300; margin-top: 2px; } .se-wz small { font-size: 15px; color: #8f9bb0; }" +
     ".se-kurve { padding: 10px 10px 4px; margin-bottom: 12px; } .se-svg { display: block; }" +
