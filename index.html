@@ -1416,13 +1416,21 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   // Der Ring rechnet mit dem Programm „ring“ (Waschmaschine: 60 °C, damit es auch dafür sicher reicht).
   var GERAETE = [
     { n: "Waschmaschine", k: "wasch", verb: "waschen", modell: "Bosch Serie 4", ring: 1, spitze: "bis ca. 2.000 W beim Aufheizen",
-      prog: [{ p: "Baumwolle 30 °C", kwh: 0.5, dauer: "ca. 2 Std." }, { p: "Baumwolle 60 °C", kwh: 1.2, dauer: "ca. 2½ Std." }] },
+      prog: [{ p: "Baumwolle 30 °C", kwh: 0.5, heiz: 0.25, heizW: 2000, dauer: "ca. 2 Std." }, { p: "Baumwolle 60 °C", kwh: 1.2, heiz: 0.9, heizW: 2000, dauer: "ca. 2½ Std." }] },
     { n: "Spülmaschine", k: "spuel", verb: "spülen", modell: "Bosch SMI6ZCS16E", ring: 0, spitze: "2.000–2.400 W beim Aufheizen (Typenschild)",
-      prog: [{ p: "Eco 50 °C", kwh: 0.75, dauer: "ca. 4 Std." }] },
+      prog: [{ p: "Eco 50 °C", kwh: 0.75, heiz: 0.55, heizW: 2200, dauer: "ca. 4 Std." }] },
     { n: "Trockner", k: "trock", verb: "trocknen", modell: "Siemens iQ700 (Wärmepumpe)", ring: 0, spitze: "ca. 600–800 W, gleichmäßig",
-      prog: [{ p: "Baumwolle Schranktrocken plus", kwh: 1.7, dauer: "ca. 3½ Std." }] }
+      prog: [{ p: "Baumwolle Schranktrocken plus", kwh: 1.7, heiz: 1.7, heizW: 700, dauer: "ca. 3½ Std." }] }
   ];
   var GERAET_OFFEN = -1;
+  // Die Solarbank gibt höchstens 800 W ins Haus (Mina 28.11.), davon braucht die Grundlast ca. 200 W.
+  // In Heizphasen (heiz kWh bei heizW Watt) kommt also nur 600 W aus der Anlage, der Rest aus dem Netz.
+  var EINSPEISUNG_MAX = 800;
+  function deckbar(P) {
+    var frei = EINSPEISUNG_MAX - GRUNDLAST * 1000, h = P.heiz || 0, w = P.heizW || 0;
+    var ausHeiz = w > frei ? h / w * frei : h;
+    return Math.min(P.kwh, P.kwh - h + ausHeiz);
+  }
   var GRUNDLAST = 0.2, RESERVE = 5, PROGRAMM_H = 2, EICH = "solar_eich_v1", PROG = "solar_prognose_v1";
   var prognose = null;
   try { prognose = JSON.parse(lies(PROG)); } catch (e) {}
@@ -1471,7 +1479,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var out = [];
     for (var g = 0; g < GERAETE.length; g++) {
       var G = GERAETE[g], progs = [];
-      for (var p = 0; p < G.prog.length; p++) progs.push(status(G.prog[p].kwh));
+      for (var p = 0; p < G.prog.length; p++) progs.push(status(deckbar(G.prog[p])));
       var r = progs[G.ring];
       out.push({ g: G, fuell: r.fuell, txt: r.txt, ok: r.ok, progs: progs, akku: akku, jetztUeber: jetztUeber, sonneRest: sonneRest });
     }
@@ -1503,13 +1511,13 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
       '<div class="sg-kopf">' + ring(s, 80) + '<div><div class="sg-titel">' + G.n + '</div><div class="sg-modell">' + esc(G.modell) + "</div></div></div>";
     for (var p = 0; p < G.prog.length; p++) {
       var P = G.prog[p], S = s.progs[p];
-      h += '<div class="sg-prog"><div class="sg-pn">' + esc(P.p) + '</div><div class="sg-pz"><b>ca. ' + kwhT(P.kwh) + "</b> pro Durchgang · " + P.dauer + '</div><div class="sg-ps' + (S.ok ? " sg-gruen" : "") + '">' + S.txt + "</div></div>";
+      h += '<div class="sg-prog"><div class="sg-pn">' + esc(P.p) + '</div><div class="sg-pz"><b>ca. ' + kwhT(P.kwh) + "</b> pro Durchgang · " + P.dauer + '</div><div class="sg-pz">davon aus der Solaranlage möglich: <b>ca. ' + kwhT(deckbar(P)) + " (" + Math.round(deckbar(P) / P.kwh * 100) + " %)</b></div>" + '<div class="sg-ps' + (S.ok ? " sg-gruen" : "") + '">' + S.txt + "</div></div>";
     }
     h += '<div class="sg-zeilen"><div><span>Im Akku nutzbar</span><b>ca. ' + kwhT(s.akku) + "</b></div>" +
       (s.jetztUeber > 0 ? "<div><span>Sonnenüberschuss jetzt (2 Std.)</span><b>ca. " + kwhT(s.jetztUeber) + "</b></div>" : "") +
       "<div><span>Sonne bis 19 Uhr erwartet</span><b>ca. " + kwhT(s.sonneRest) + "</b></div>" +
       "<div><span>Leistung</span><b>" + esc(G.spitze) + "</b></div></div>" +
-      '<div class="sg-hinweis">Werte sind Herstellerangaben für volle Beladung, also Schätzungen. Was über die Leistung der Solarbank hinausgeht, kommt kurz aus dem Netz.</div>' +
+      '<div class="sg-hinweis">Die Anlage gibt höchstens 800 W ins Haus. Beim Aufheizen braucht das Gerät mehr, der Rest kommt dann aus dem Netz. Der Ring ist voll, wenn der Strom für den möglichen Solar-Anteil da ist. Werte sind Schätzungen für volle Beladung.</div>' +
       '<div class="sg-zu">Schließen</div></div></div>';
     return h;
   }
