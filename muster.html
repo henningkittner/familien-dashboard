@@ -58,22 +58,37 @@ button.ok{background:#30a14e}
 <button onclick="kopiere(10,this)">Kopieren</button></div>
 
 <h1 style="margin-top:28px">Teil 4: Jede Meldung nur einmal</h1>
-<p>Für die neuen Schritte 9a bis 9e in Teil 4.</p>
-<div class="k"><div class="kopf"><span class="nr">N1</span>Text – für die Variable „Alle“</div>
-<div class="t">stand</div>
-<button onclick="kopiere(67,this)">Kopieren</button></div>
-<div class="k"><div class="kopf"><span class="nr">N2</span>Text abgleichen – findet die Datumszeile</div>
-<div class="t">^[A-Z][a-z]\.,\s*\d{2}\.\d{2}\.\d{4}</div>
-<button onclick="kopiere(68,this)">Kopieren</button></div>
-<div class="k"><div class="kopf"><span class="nr">N3</span>Text abgleichen – findet eine Stunde</div>
-<div class="t">^\d{1,2}\.\s</div>
-<button onclick="kopiere(69,this)">Kopieren</button></div>
-<div class="k"><div class="kopf"><span class="nr">N4</span>Text – zwischen Blase Tag und Wiederholungsobjekt (Leerzeichen · Leerzeichen)</div>
-<div class="t"><span class=sp>␣</span>·<span class=sp>␣</span></div>
-<button onclick="kopiere(70,this)">Kopieren</button></div>
-<div class="k"><div class="kopf"><span class="nr">N5</span>Wenn … enthält – nur der Punkt</div>
-<div class="t">·</div>
-<button onclick="kopiere(71,this)">Kopieren</button></div>
+<p>Für den neuen Teil 4 (Schritte 9a bis 9h). Bei jedem „Text ersetzen“ Regulärer Ausdruck an.</p>
+<div class="k"><div class="kopf"><span class="nr">M1</span>Text ersetzen in der Wiederholung – Suchen (Regulärer Ausdruck an)</div>
+<div class="t">(?m)^([A-Z][a-z]\.,\s*\d{2}\.\d{2}\.\d{4})\n(\d{1,2}\.\s.*)$</div>
+<button onclick="kopiere(72,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">M2</span>dasselbe – Durch (zwei Zeilen, Zeilenumbruch wird mitkopiert)</div>
+<div class="t">$1<span class=sp>␣</span>·<span class=sp>␣</span>$2<span<span class=sp>␣</span>class=sp>↵</span><br>$1</div>
+<button onclick="kopiere(73,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">M3</span>Text ersetzen nach der Wiederholung – Suchen (Durch: leer)</div>
+<div class="t">(?m)^(?![A-Z][a-z]\.,\s*\d{2}\.\d{2}\.\d{4}<span class=sp>␣</span>·<span class=sp>␣</span>\d).*(\n|$)</div>
+<button onclick="kopiere(74,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">M4</span>Text – Trennzeichen zwischen K und Alt</div>
+<div class="t">¶¶</div>
+<button onclick="kopiere(75,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">M5</span>Text ersetzen 1 – Suchen (Durch: leer)</div>
+<div class="t">^[\s\S]*¶¶\s*$</div>
+<button onclick="kopiere(76,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">M6</span>Text ersetzen 2 – Suchen (Durch: leer)</div>
+<div class="t">(?m)^(.+)\n(?=[\s\S]*¶¶[\s\S]*^\1$)</div>
+<button onclick="kopiere(77,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">M7</span>Text ersetzen 3 – Suchen (Durch: leer)</div>
+<div class="t">\n?¶¶[\s\S]*</div>
+<button onclick="kopiere(78,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">M8</span>Text – Trennzeichen zwischen KindName und Neu</div>
+<div class="t">¶</div>
+<button onclick="kopiere(79,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">M9</span>Text ersetzen – Suchen (Durch: leer)</div>
+<div class="t">^[\s\S]*¶\s*$</div>
+<button onclick="kopiere(80,this)">Kopieren</button></div>
+<div class="k"><div class="kopf"><span class="nr">M10</span>Text ersetzen – Suchen (Durch: leer)</div>
+<div class="t">¶[\s\S]*</div>
+<button onclick="kopiere(81,this)">Kopieren</button></div>
 
 <h1 style="margin-top:28px">Muster für Teil 8 (Schulaufgaben)</h1>
 <div class="k"><div class="kopf"><span class="nr">S1</span>URL – Seite mit den Schulaufgaben</div>
@@ -246,7 +261,7 @@ button.ok{background:#30a14e}
 <button onclick="kopiere(66,this)">Kopieren</button></div>
 <textarea id="puffer" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px" readonly></textarea>
 <script>
-var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "gm_", ".txt", "(?m)^\\d{1,2}\\. ·", "Neu im Vertretungsplan für ", "\\s*·?\\s*&nbsp;", "(\\d{2}\\.\\d{2}\\.\\d{4})(?=\\n[A-Z][a-z]\\.,|\\s*$)", "$1\nkeine Änderungen", "https://wkrstauf.eltern-portal.org/service/termine/liste/schulaufgaben", "sa.txt", "<tr[\\s\\S]*?</tr>", "@@SA@@", "https://ankerpower-api-eu.anker.com/passport/login", "Content-Type", "application/json", "Country", "DE", "Timezone", "GMT+01:00", "App-Name", "anker_power", "Os-Type", "android", "Model-Type", "DESKTOP", "data", "auth_token", "user_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_site_list", "X-Auth-Token", "gtoken", "site_list", "site_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_scen_info", "https://henningkittner.github.io/familien-dashboard/#pv=", "https://wkrstauf.eltern-portal.org/service/stundenplan", "sp.txt", "<table[\\s\\S]*?</table>", "@@SP@@", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\"}", "yyyy-MM-dd", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"day\",\"device_type\":\"home_usage\",\"start_time\":\"", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"day\",\"device_type\":\"solar_production\",\"start_time\":\"", "\",\"end_time\":\"\"}", "https://ankerpower-api-eu.anker.com/power_service/v1/site/energy_analysis", "{\"scen\":", ",\"haus\":", ",\"solar\":", "}", "home_usage", "solar_production", "yyyy-MM", "yyyy", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"week\",\"device_type\":\"home_usage\",\"start_time\":\"", "\",\"end_time\":\"", "\"}\n{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"month\",\"device_type\":\"home_usage\",\"start_time\":\"", "\",\"end_time\":\"\"}\n{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"year\",\"device_type\":\"home_usage\",\"start_time\":\"", "\",\"end_time\":\"\"}\n{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"year\",\"device_type\":\"home_usage\",\"start_time\":\"2025\",\"end_time\":\"\"}", ",", ",\"zr\":[", "]", "stand", "^[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}", "^\\d{1,2}\\.\\s", " · ", "·"];
+var TEXTE = ["[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}|<tr[^>]*>\\s*<td[^>]*>\\s*\\d+\\.?\\s*</td>[\\s\\S]*?</tr>", "<span[^>]*line-through[^>]*>[^<]*</span>", "</td>\\s*<td[^>]*>", " · ", "<[^>]+>", "( *· *)+", " · ", "gm_", ".txt", "(?m)^\\d{1,2}\\. ·", "Neu im Vertretungsplan für ", "\\s*·?\\s*&nbsp;", "(\\d{2}\\.\\d{2}\\.\\d{4})(?=\\n[A-Z][a-z]\\.,|\\s*$)", "$1\nkeine Änderungen", "https://wkrstauf.eltern-portal.org/service/termine/liste/schulaufgaben", "sa.txt", "<tr[\\s\\S]*?</tr>", "@@SA@@", "https://ankerpower-api-eu.anker.com/passport/login", "Content-Type", "application/json", "Country", "DE", "Timezone", "GMT+01:00", "App-Name", "anker_power", "Os-Type", "android", "Model-Type", "DESKTOP", "data", "auth_token", "user_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_site_list", "X-Auth-Token", "gtoken", "site_list", "site_id", "https://ankerpower-api-eu.anker.com/power_service/v1/site/get_scen_info", "https://henningkittner.github.io/familien-dashboard/#pv=", "https://wkrstauf.eltern-portal.org/service/stundenplan", "sp.txt", "<table[\\s\\S]*?</table>", "@@SP@@", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\"}", "yyyy-MM-dd", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"day\",\"device_type\":\"home_usage\",\"start_time\":\"", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"day\",\"device_type\":\"solar_production\",\"start_time\":\"", "\",\"end_time\":\"\"}", "https://ankerpower-api-eu.anker.com/power_service/v1/site/energy_analysis", "{\"scen\":", ",\"haus\":", ",\"solar\":", "}", "home_usage", "solar_production", "yyyy-MM", "yyyy", "{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"week\",\"device_type\":\"home_usage\",\"start_time\":\"", "\",\"end_time\":\"", "\"}\n{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"month\",\"device_type\":\"home_usage\",\"start_time\":\"", "\",\"end_time\":\"\"}\n{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"year\",\"device_type\":\"home_usage\",\"start_time\":\"", "\",\"end_time\":\"\"}\n{\"site_id\":\"307d441d-2daa-43d4-a4cb-19efa40e7fa7\",\"device_sn\":\"\",\"type\":\"year\",\"device_type\":\"home_usage\",\"start_time\":\"2025\",\"end_time\":\"\"}", ",", ",\"zr\":[", "]", "stand", "^[A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4}", "^\\d{1,2}\\.\\s", " · ", "·", "(?m)^([A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4})\\n(\\d{1,2}\\.\\s.*)$", "$1 · $2\n$1", "(?m)^(?![A-Z][a-z]\\.,\\s*\\d{2}\\.\\d{2}\\.\\d{4} · \\d).*(\\n|$)", "¶¶", "^[\\s\\S]*¶¶\\s*$", "(?m)^(.+)\\n(?=[\\s\\S]*¶¶[\\s\\S]*^\\1$)", "\\n?¶¶[\\s\\S]*", "¶", "^[\\s\\S]*¶\\s*$", "¶[\\s\\S]*"];
 function fertig(knopf, ok) {
   knopf.innerHTML = ok ? "Kopiert ✓" : "Bitte Text lange drücken";
   knopf.className = ok ? "ok" : "";
