@@ -570,12 +570,15 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   document.addEventListener("click", function (e) {
     var t = e.target;
     if (drin(t, function (el) { return el.id === "ruhe"; })) return;
-    if (aktuell()) { setze(null); return; }
+    if (drin(t, function (el) { return el.id === "we-knopf"; })) { setze("woche"); return; } // Wochenende: normale Übersicht holen
+    var akt = aktuell();
+    if (akt && akt !== "woche") { setze(null); return; }
     if (drin(t, function (el) { return el.id === "solar" || el.id === "solar-detail"; })) { setze("solar"); if (window.SolarGeoeffnet) window.SolarGeoeffnet(); return; }
     if (drin(t, function (el) { return el.id === "wetter" || el.id === "wetter-detail"; })) { setze("wetter"); return; }
     if (drin(t, function (el) { return el.id === "raster" || /\babf-titel\b/.test(el.className || ""); })) setze("abf");
     else if (drin(t, function (el) { return /\bvp-bereich\b/.test(el.className || ""); })) setze("vp");
     else if (drin(t, function (el) { return /\bkal-bereich\b/.test(el.className || ""); })) setze("kal");
+    else if (akt) setze(null);
   }, false);
   // Nach 2 Minuten ohne Berührung zurück zur Übersicht
   var letzte = Date.now();
@@ -1803,6 +1806,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   body.we-ue #we-reihe { -webkit-align-items: stretch; align-items: stretch; }
   body.we-ue #we-reihe #solar-detail { margin-right: 16px; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; -webkit-justify-content: space-between; justify-content: space-between; padding-bottom: 12px; }
   body.we-ue .wd-quelle, body.we-ue .sd-fuss { display: none; }
+  #we-knopf { display: none; }
+  body.we-ue #we-knopf { display: block; float: right; margin: 8px 22px 0 0; padding: 10px 18px; border-radius: 22px; background: rgba(255,255,255,.12); color: #fff; font-size: 18px; font-weight: 600; cursor: pointer; }
   html:-webkit-full-screen body.we-ue #kopf-datum, html.vb-rand body.we-ue #kopf-datum { top: 26px; } /* Mina 28.11.: Datum nicht unter Safaris X */
   body.we-ue .sd-kopf { -webkit-flex-wrap: wrap; flex-wrap: wrap; }
   body.we-ue .sd-tabs { width: 100%; margin-top: 8px; } body.we-ue .sd-tabs span { -webkit-flex: 1; flex: 1; text-align: center; padding: 7px 4px; }
@@ -1817,7 +1822,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 <script>
 /* Wochenende (Mina 28.11.): Samstag und Sonntag zeigt die Übersicht Solar und Wetter nebeneinander.
    Montag bis Freitag bleibt die normale Übersicht. Antippen öffnet die jeweilige Detailansicht groß,
-   nach 2 Min geht es zurück hierher (fokus.js). Test: ?wochenende=1 (immer) bzw. ?wochenende=0 (nie). ES5. */
+   nach 2 Min geht es zurück hierher (fokus.js). Knopf „Bus, Bahn & Schule“ zeigt die normale Übersicht (fokus-woche). Test: ?wochenende=1 (immer) bzw. ?wochenende=0 (nie). ES5. */
 (function () {
   var body = document.body, test = /[?&]wochenende=([01])/.exec(location.search);
   var solar = document.getElementById("solar-detail"), wetter = document.getElementById("wetter-detail");
@@ -1827,6 +1832,12 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     fuss.parentNode.insertBefore(reihe, fuss);
     if (solar) reihe.appendChild(solar);
     reihe.appendChild(wetter);
+  }
+  var uhr = document.getElementById("uhr");
+  if (uhr && uhr.parentNode) {
+    var knopf = document.createElement("div"); knopf.id = "we-knopf";
+    knopf.innerHTML = "Bus, Bahn &amp; Schule";
+    uhr.parentNode.insertBefore(knopf, uhr.nextSibling);
   }
   function istWochenende() { if (test) return test[1] === "1"; var t = new Date().getDay(); return t === 0 || t === 6; }
   var vorher = null;
