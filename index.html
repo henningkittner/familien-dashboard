@@ -1815,8 +1815,29 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   body.we-ue .se-wert { margin-right: 18px; } body.we-ue .se-lw { font-size: 21px; } body.we-ue .se-live { padding: 8px 10px; }
   body.we-ue .sg-k { min-width: 0; padding: 8px; } body.we-ue .sg-k svg { width: 40px; height: 40px; margin-right: 7px; }
   body.we-ue .sg-n { font-size: 15px; } body.we-ue .sg-t { font-size: 12px; }
-  body.we-ue .wd-oben { -webkit-flex-direction: column; flex-direction: column; }
-  body.we-ue .wd-jetzt { margin: 0 0 10px; min-width: 0; padding: 8px 18px 8px 10px; } body.we-ue .wd-kacheln { margin: -4px; }
+  body.we-ue .wd-oben { margin-bottom: 12px; }
+  body.we-ue .wd-jetzt { margin: 0 12px 0 0; min-width: 0; height: 128px; padding: 6px 14px 6px 8px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+  body.we-ue .wd-jetzt svg { width: 62px; height: 62px; margin-right: 6px; }
+  body.we-ue .wd-ort { font-size: 14px; } body.we-ue .wd-temp { font-size: 42px; } body.we-ue .wd-text { font-size: 15px; } body.we-ue .wd-ht { font-size: 13px; }
+  body.we-ue .wd-kacheln { margin: -4px; -webkit-align-content: flex-start; align-content: flex-start; min-width: 0; }
+  body.we-ue .wd-kachel { height: 60px; padding: 7px 10px; overflow: hidden; }
+  body.we-ue .wd-k-titel { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.we-ue .wd-k-wert { font-size: 20px; margin-top: 1px; white-space: nowrap; } body.we-ue .wd-k-klein { font-size: 11px; margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Solar: Jetzt-Kacheln und Geräte oben, auf gleicher Höhe wie die Wetter-Kacheln (Mina 28.11.) */
+  body.we-ue #solar-detail { -webkit-justify-content: flex-start !important; justify-content: flex-start !important; }
+  body.we-ue #solar-detail > * { -webkit-order: 4; order: 4; }
+  body.we-ue #solar-detail > .se-lives { -webkit-order: 1; order: 1; margin-bottom: 8px; }
+  body.we-ue #solar-detail > .sg-reihe { -webkit-order: 2; order: 2; margin-bottom: 12px; }
+  body.we-ue #solar-detail > .sd-kopf { -webkit-order: 3; order: 3; }
+  body.we-ue .se-live { height: 60px; box-sizing: border-box; overflow: hidden; } body.we-ue .sg-k { height: 60px; box-sizing: border-box; }
+  body.we-ue #solar-detail > .se-gross, body.we-ue #solar-detail > .se-werte, body.we-ue #solar-detail > .se-kurve { margin-top: auto; }
+  body.we-ue .se-lw { font-size: 19px !important; white-space: nowrap; } body.we-ue .se-lt { font-size: 12px; }
+  body.we-ue .sg-k { padding: 6px 8px; } body.we-ue .sg-k svg { width: 34px !important; height: 34px !important; margin-right: 6px !important; }
+  body.we-ue .sg-n { font-size: 14px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } body.we-ue .sg-t { font-size: 11px !important; }
+  body.we-ue .sg-k > div { min-width: 0; }
+  body.we-ue .wd-k-titel { font-size: 10px; letter-spacing: 0; }
+  body.we-ue .se-gross { font-size: 46px !important; } body.we-ue .se-gross span { font-size: 17px !important; }
+  body.we-ue .se-wt { font-size: 12px; white-space: nowrap; } body.we-ue .se-wz { font-size: 26px; } body.we-ue .se-wert { margin-right: 14px !important; }
   body.we-ue .wd-stunden .wd-stunde:nth-child(n+9) { display: none; }
 </style>
 <script>
