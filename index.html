@@ -556,6 +556,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
   kopf.insertBefore(knopf, kopf.firstChild);
   function setze(art) {
     body.className = body.className.replace(/\s*fokus-\w+/g, "") + (art ? " fokus-" + art : "");
+    if (window.WeAnpassen) window.WeAnpassen(); // Wochenend-Übersicht (wochenende.js)
     try { localStorage.setItem("fokus_ansicht_v1", (art || "") + "|" + Date.now()); } catch (e) {}
     var z = art === "abf" ? ZEILEN_FOKUS : ZEILEN_NORMAL;
     if (CONFIG.maxZeilen !== z) { CONFIG.maxZeilen = z; aktualisiere(); }
@@ -570,8 +571,8 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     var t = e.target;
     if (drin(t, function (el) { return el.id === "ruhe"; })) return;
     if (aktuell()) { setze(null); return; }
-    if (drin(t, function (el) { return el.id === "solar"; })) { setze("solar"); if (window.SolarGeoeffnet) window.SolarGeoeffnet(); return; }
-    if (drin(t, function (el) { return el.id === "wetter"; })) { setze("wetter"); return; }
+    if (drin(t, function (el) { return el.id === "solar" || el.id === "solar-detail"; })) { setze("solar"); if (window.SolarGeoeffnet) window.SolarGeoeffnet(); return; }
+    if (drin(t, function (el) { return el.id === "wetter" || el.id === "wetter-detail"; })) { setze("wetter"); return; }
     if (drin(t, function (el) { return el.id === "raster" || /\babf-titel\b/.test(el.className || ""); })) setze("abf");
     else if (drin(t, function (el) { return /\bvp-bereich\b/.test(el.className || ""); })) setze("vp");
     else if (drin(t, function (el) { return /\bkal-bereich\b/.test(el.className || ""); })) setze("kal");
@@ -749,7 +750,7 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
     x.send();
   }
   function schritt() {
-    if (!el || !/fokus-wetter/.test(document.body.className) || !el.offsetWidth) return;
+    if (!el || !/fokus-wetter|we-ue/.test(document.body.className) || !el.offsetWidth) return;
     if (!el.querySelector(".wd-radar-bild") && !aufbauen()) return;
     if (!daten || Date.now() - geladen > 5 * 60000) laden();
     if (!daten) return;
@@ -1794,6 +1795,54 @@ function uhr() { $("uhr").innerHTML = hhmm(new Date()); }
 
 </script>
 <style>html:-webkit-full-screen { width: 100%; height: 100%; background: #10151c; } :-webkit-full-screen-ancestor { background: #10151c; } html:-webkit-full-screen .kopf, html.vb-rand .kopf { padding-left: 96px !important; padding-top: 36px !important; } html:-webkit-full-screen #kopf-datum, html.vb-rand #kopf-datum { position: relative; top: -8px; } html:-webkit-full-screen .stand, html.vb-rand .stand { margin-left: -70px; }</style>
+<style>
+  body.we-ue .abf-titel, body.we-ue #raster, body.we-ue .vp-bereich, body.we-ue .kal-bereich, body.we-ue .fuss,
+  body.we-ue #wetter, body.we-ue #solar, body.we-ue .stand, body.we-ue #stoerungen { display: none !important; }
+  body.we-ue #we-reihe { display: -webkit-flex; display: flex; -webkit-align-items: flex-start; align-items: flex-start; margin: 6px 12px 8px; }
+  body.we-ue #we-reihe #solar-detail, body.we-ue #we-reihe #wetter-detail { display: block; -webkit-flex: 1; flex: 1; min-width: 0; margin: 0; cursor: pointer; }
+  body.we-ue #we-reihe { -webkit-align-items: stretch; align-items: stretch; }
+  body.we-ue #we-reihe #solar-detail { margin-right: 16px; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; -webkit-justify-content: space-between; justify-content: space-between; padding-bottom: 12px; }
+  body.we-ue .wd-quelle, body.we-ue .sd-fuss { display: none; }
+  body.we-ue .sd-kopf { -webkit-flex-wrap: wrap; flex-wrap: wrap; }
+  body.we-ue .sd-tabs { width: 100%; margin-top: 8px; } body.we-ue .sd-tabs span { -webkit-flex: 1; flex: 1; text-align: center; padding: 7px 4px; }
+  body.we-ue .se-gross { font-size: 52px; } body.we-ue .se-gross span { font-size: 20px; }
+  body.we-ue .se-wert { margin-right: 18px; } body.we-ue .se-lw { font-size: 21px; } body.we-ue .se-live { padding: 8px 10px; }
+  body.we-ue .sg-k { min-width: 0; padding: 8px; } body.we-ue .sg-k svg { width: 40px; height: 40px; margin-right: 7px; }
+  body.we-ue .sg-n { font-size: 15px; } body.we-ue .sg-t { font-size: 12px; }
+  body.we-ue .wd-oben { -webkit-flex-direction: column; flex-direction: column; }
+  body.we-ue .wd-jetzt { margin: 0 0 10px; min-width: 0; padding: 8px 18px 8px 10px; } body.we-ue .wd-kacheln { margin: -4px; }
+  body.we-ue .wd-stunden .wd-stunde:nth-child(n+9) { display: none; }
+</style>
+<script>
+/* Wochenende (Mina 28.11.): Samstag und Sonntag zeigt die Übersicht Solar und Wetter nebeneinander.
+   Montag bis Freitag bleibt die normale Übersicht. Antippen öffnet die jeweilige Detailansicht groß,
+   nach 2 Min geht es zurück hierher (fokus.js). Test: ?wochenende=1 (immer) bzw. ?wochenende=0 (nie). ES5. */
+(function () {
+  var body = document.body, test = /[?&]wochenende=([01])/.exec(location.search);
+  var solar = document.getElementById("solar-detail"), wetter = document.getElementById("wetter-detail");
+  var fuss = document.querySelector(".fuss");
+  if (wetter && fuss && fuss.parentNode) {
+    var reihe = document.createElement("div"); reihe.id = "we-reihe";
+    fuss.parentNode.insertBefore(reihe, fuss);
+    if (solar) reihe.appendChild(solar);
+    reihe.appendChild(wetter);
+  }
+  function istWochenende() { if (test) return test[1] === "1"; var t = new Date().getDay(); return t === 0 || t === 6; }
+  var vorher = null;
+  function anpassen() {
+    var an = istWochenende() && !/fokus-/.test(body.className);
+    if (an === vorher) return;
+    vorher = an;
+    body.className = body.className.replace(/\s*we-ue/g, "") + (an ? " we-ue" : "");
+    if (an && window.RadarStart) window.RadarStart(document.getElementById("wd-radar"));
+    if (window.Einpassen) { window.Einpassen(); setTimeout(window.Einpassen, 400); }
+  }
+  window.WeAnpassen = anpassen;
+  anpassen();
+  setInterval(anpassen, 30000); // um Mitternacht automatisch umschalten
+})();
+
+</script>
 <script>
 /* Vollbild: beim Antippen wechselt Safari (iPad ab iPadOS 12) in den Vollbildmodus, ohne Adressleiste.
    Geht nur durch eine Berührung, nicht automatisch. Fällt der Vollbildmodus weg (z. B. neuer Tab vom Kurzbefehl),
